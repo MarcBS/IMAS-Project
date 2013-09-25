@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="src" path="src"/>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="lib" path="C:/Users/Itaka/workspace/SMA 2013-2014/lib/commons-codec-1.3.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Itaka/workspace/SMA 2013-2014/lib/http.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Itaka/workspace/SMA 2013-2014/lib/iiop.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Itaka/workspace/SMA 2013-2014/lib/jade.jar"/>
+	<classpathentry kind="lib" path="C:/Users/Itaka/workspace/SMA 2013-2014/lib/jadeTools.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
