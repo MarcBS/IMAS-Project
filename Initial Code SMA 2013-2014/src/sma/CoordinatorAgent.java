@@ -156,7 +156,7 @@ public class CoordinatorAgent extends Agent {
             for (InfoAgent ia : info.getAgentsInitialPosition().keySet()){  
           	  showMessage(ia.toString());
               Cell pos = (Cell)info.getAgentsInitialPosition().get(ia);
-              showMessage("c: " + pos);  
+              showMessage("c: " + pos);  	
             }
             showMessage("Garbage discovered: ");
             for (int i=0; i<info.getMap().length; i++){

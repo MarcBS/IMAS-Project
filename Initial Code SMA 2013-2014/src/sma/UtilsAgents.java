@@ -32,7 +32,9 @@ public class UtilsAgents {
   public static String COORDINATOR_AGENT = "coordinator-agent";
 
   public static String SCOUT_AGENT = "scout";
+  public static String SCOUT_COORDINATOR_AGENT = "scout-coordinator";
   public static String HARVESTER_AGENT = "harvester";
+  public static String HARVESTER_COORDINATOR_AGENT = "harvester-coordinatro";
 
   public static String OWNER = "urv";
 

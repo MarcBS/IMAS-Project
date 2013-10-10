@@ -4,6 +4,7 @@ import java.lang.*;
 import java.io.*;
 import java.sql.SQLException;
 import java.sql.ResultSet;
+
 import jade.util.leap.ArrayList;
 import jade.util.leap.List;
 import jade.core.*;
@@ -16,9 +17,9 @@ import jade.content.*;
 import jade.content.onto.*;
 import jade.proto.AchieveREInitiator;
 import jade.proto.AchieveREResponder;
-
 import sma.ontology.*;
 import sma.gui.*;
+
 import java.util.*;
 
 /**
@@ -34,6 +35,7 @@ public class CentralAgent extends Agent {
 
   private sma.gui.GraphicInterface gui;
   private sma.ontology.InfoGame game;
+  private java.util.List<Cell> agents = null;
 
   private AID coordinatorAgent;
 
@@ -119,7 +121,6 @@ public class CentralAgent extends Agent {
     
     
    /****Agents are randomly placed****************/
-   java.util.List<Cell> agents = null;
    try{
 	   agents = placeAgents(this.game);
    }catch(Exception e){}
@@ -128,28 +129,7 @@ public class CentralAgent extends Agent {
    this.game.getInfo().fillAgentsInitialPositions(agents);
 
    //If any scout is near a building with garbage, we show it in the public map
-   java.util.List<Cell> remove = new LinkedList<Cell>();
-   for (Cell a : agents){
-	    if (a.getAgent().getAgentType()==InfoAgent.SCOUT){
-	    	for (Cell b : game.getBuildingsGarbage()){
-	    		int x=a.getRow(); int y=a.getColumn();
-	    		int xb=b.getRow(); int yb=b.getColumn();
-	    		if (x>0){
-	    			if ((xb==x-1) && (yb==y)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-		    		if ((y>0) && (xb==x-1) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);} 
-		    		if ((y<game.getInfo().getMap()[x].length-1) && (xb==x-1) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-		    	}
-		    	if (x<game.getInfo().getMap().length-1){
-		    		if ((xb==x+1) && (yb==y)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-		    		if ((y>0) && (xb==x+1) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-		    		if ((y<game.getInfo().getMap()[x].length-1) && (xb==x+1) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-		    	}
-		    	if ((y>0) && (xb==x) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-				if ((y<game.getInfo().getMap()[x].length-1) && (xb==x) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-	    	}
-	    }	   
-   }
-   for (Cell r : remove)  game.getBuildingsGarbage().remove(r);
+   checkScoutsDiscoveries();
         
    // search CoordinatorAgent
    ServiceDescription searchCriterion = new ServiceDescription();
@@ -163,12 +143,40 @@ public class CentralAgent extends Agent {
     MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchProtocol(InteractionProtocol.FIPA_REQUEST), MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
     
    this.addBehaviour(new RequestResponseBehaviour(this, null));
+   this.addBehaviour(new MainLoopBehaviour(this, game.getTimeout()));
+   
 
    // Setup finished. When the last inform is received, the agent itself will add
    // a behavious to send/receive actions
 
   } //endof setup
 
+  
+  private void checkScoutsDiscoveries(){
+	  showMessage("Checking New Discoveries...");
+	  java.util.List<Cell> remove = new LinkedList<Cell>();
+	   for (Cell a : agents){
+		    if (a.getAgent().getAgentType()==InfoAgent.SCOUT){
+		    	for (Cell b : game.getBuildingsGarbage()){
+		    		int x=a.getRow(); int y=a.getColumn();
+		    		int xb=b.getRow(); int yb=b.getColumn();
+		    		if (x>0){
+		    			if ((xb==x-1) && (yb==y)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
+			    		if ((y>0) && (xb==x-1) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);} 
+			    		if ((y<game.getInfo().getMap()[x].length-1) && (xb==x-1) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
+			    	}
+			    	if (x<game.getInfo().getMap().length-1){
+			    		if ((xb==x+1) && (yb==y)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
+			    		if ((y>0) && (xb==x+1) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
+			    		if ((y<game.getInfo().getMap()[x].length-1) && (xb==x+1) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
+			    	}
+			    	if ((y>0) && (xb==x) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
+					if ((y<game.getInfo().getMap()[x].length-1) && (xb==x) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
+		    	}
+		    }	   
+	   }
+	   for (Cell r : remove)  game.getBuildingsGarbage().remove(r);
+  }
   
   /*************************************************************************/
 
@@ -256,6 +264,56 @@ public class CentralAgent extends Agent {
 
 
   /*************************************************************************/
+  
+  /**
+   * Performs the main loop of the application checking the moves of the agents and
+   * updating the GUI until we reach the number of turns for this game.
+   * 
+   * @author Marc Bolaños
+   *
+   */
+  private class MainLoopBehaviour extends TickerBehaviour {
 
+	public MainLoopBehaviour(Agent a, long period) {
+		super(a, period);
+		// TODO Auto-generated constructor stub
+	}
+
+	@Override
+	protected void onTick() {		
+		
+		boolean game_finished = false;
+		
+		// Update Turn counter
+		game.incrTurn();
+		int turn = game.getTurn();
+		if(turn <= game.getGameDuration()){
+			showMessage(String.valueOf(turn));
+		// Finishing game
+		} else {
+			try {
+				game_finished = true;
+				this.stop();
+			} catch (Throwable e) {
+				e.printStackTrace();
+			}
+		}
+		
+		if(!game_finished){
+			
+			// Updates garbage discoveries
+			checkScoutsDiscoveries();
+			
+			// TODO get and show agents' movements
+			
+		} else {
+			
+			// TODO show final results
+			
+		}
+		
+	}
+
+  }
 
 } //endof class AgentCentral
