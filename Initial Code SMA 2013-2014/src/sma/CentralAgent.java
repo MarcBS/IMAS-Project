@@ -5,7 +5,8 @@ import java.io.*;
 import java.sql.SQLException;
 import java.sql.ResultSet;
 
-import jade.util.leap.ArrayList;
+import java.util.ArrayList;
+// import jade.util.leap.ArrayList;
 import jade.util.leap.List;
 import jade.core.*;
 import jade.core.behaviours.*;
@@ -38,6 +39,7 @@ public class CentralAgent extends Agent {
   private java.util.List<Cell> agents = null;
 
   private AID coordinatorAgent;
+  private int turnLastMap = 0;
 
   public CentralAgent() {
     super();
@@ -129,7 +131,7 @@ public class CentralAgent extends Agent {
    this.game.getInfo().fillAgentsInitialPositions(agents);
 
    //If any scout is near a building with garbage, we show it in the public map
-   checkScoutsDiscoveries();
+   //checkScoutsDiscoveries();
         
    // search CoordinatorAgent
    ServiceDescription searchCriterion = new ServiceDescription();
@@ -143,12 +145,13 @@ public class CentralAgent extends Agent {
     MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchProtocol(InteractionProtocol.FIPA_REQUEST), MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
     
    this.addBehaviour(new RequestResponseBehaviour(this, null));
-   this.addBehaviour(new MainLoopBehaviour(this, game.getTimeout()));
    
 
    // Setup finished. When the last inform is received, the agent itself will add
-   // a behavious to send/receive actions
+   // a behaviour to send/receive actions
 
+   this.addBehaviour(new MainLoopBehaviour(this, game.getTimeout()));
+   
   } //endof setup
 
   
@@ -176,6 +179,26 @@ public class CentralAgent extends Agent {
 		    }	   
 	   }
 	   for (Cell r : remove)  game.getBuildingsGarbage().remove(r);
+  }
+  
+  
+  /**
+   * Manages the input moves updating the map with respect to the information
+   * provided.
+   * 
+   * @param moves Object containing 
+   */
+  private boolean processMovements(Object moves){
+	  ArrayList<Movement> mo_list = (ArrayList)moves;
+	  for(Movement m : mo_list){
+		  String agent_id = m.getAgentId();
+		  int[] pos = m.getPosition();
+		  // TODO: update positions
+
+	  }
+	  
+	  showMessage("Checking MOVEMENTS");
+	  return true;
   }
   
   /*************************************************************************/
@@ -213,13 +236,17 @@ public class CentralAgent extends Agent {
       try {
         Object contentRebut = (Object)msg.getContent();
         if(contentRebut.equals("Initial request")) {
-          showMessage("Initial request received");
-          reply.setPerformative(ACLMessage.AGREE);
+        	showMessage("Initial request received");
+        	reply.setPerformative(ACLMessage.AGREE);
+        } else if(turnLastMap < game.getTurn() && processMovements(msg.getContentObject())) {
+        	turnLastMap = game.getTurn();
+        	showMessage("Movements applied.");
+	        reply.setPerformative(ACLMessage.AGREE);
         }
       } catch (Exception e) {
         e.printStackTrace();
       }
-      showMessage("Answer sent"); //: \n"+reply.toString());
+      //showMessage("Answer sent"); //: \n"+reply.toString());
       return reply;
     } //endof prepareResponse   
 
@@ -248,7 +275,7 @@ public class CentralAgent extends Agent {
         System.err.println(e.toString());
         e.printStackTrace();
       }
-      showMessage("Answer sent"); //+reply.toString());
+      //showMessage("Answer sent"); //+reply.toString());
       return reply;
 
     } //endof prepareResultNotification
@@ -261,7 +288,9 @@ public class CentralAgent extends Agent {
     }
 
   } //end of RequestResponseBehaviour
-
+  
+  
+  
 
   /*************************************************************************/
   
@@ -276,7 +305,6 @@ public class CentralAgent extends Agent {
 
 	public MainLoopBehaviour(Agent a, long period) {
 		super(a, period);
-		// TODO Auto-generated constructor stub
 	}
 
 	@Override
@@ -288,7 +316,7 @@ public class CentralAgent extends Agent {
 		game.incrTurn();
 		int turn = game.getTurn();
 		if(turn <= game.getGameDuration()){
-			showMessage(String.valueOf(turn));
+			showMessage("Turn " + String.valueOf(turn));
 		// Finishing game
 		} else {
 			try {
@@ -300,15 +328,11 @@ public class CentralAgent extends Agent {
 		}
 		
 		if(!game_finished){
-			
-			// Updates garbage discoveries
-			checkScoutsDiscoveries();
-			
-			// TODO get and show agents' movements
+
 			
 		} else {
 			
-			// TODO show final results
+			// TODO: show final result
 			
 		}
 		

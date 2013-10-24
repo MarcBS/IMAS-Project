@@ -1,5 +1,5 @@
 0.3 //probability to generate a new unit of garbage
-10 //game duration in turns
+500 //game duration in turns
 1000  //time to think milliseconds
 20    //rows
 20    //columns

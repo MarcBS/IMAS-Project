@@ -4,7 +4,10 @@ import java.lang.*;
 import java.io.*;
 import java.sql.SQLException;
 import java.sql.ResultSet;
-import jade.util.leap.ArrayList;
+import java.util.ArrayList;
+
+
+//import jade.util.leap.ArrayList;
 import jade.util.leap.List;
 import jade.core.*;
 import jade.core.behaviours.*;
@@ -18,6 +21,7 @@ import jade.proto.AchieveREInitiator;
 import jade.proto.AchieveREResponder;
 import sma.ontology.*;
 import sma.gui.*;
+
 import java.util.*;
 /**
  * <p><B>Title:</b> IA2-SMA</p>
@@ -33,6 +37,9 @@ public class CoordinatorAgent extends Agent {
   private AuxInfo info;
 
   private AID centralAgent;
+  
+  // initializes the array that will store the movement of each agent for each turn
+  private ArrayList<Movement> newMovements;
 
  
   public CoordinatorAgent() {
@@ -98,8 +105,6 @@ public class CoordinatorAgent extends Agent {
 
     // setup finished. When we receive the last inform, the agent itself will add
     // a behaviour to send/receive actions
-    
-   
 
   } //endof setup
 
@@ -169,6 +174,12 @@ public class CoordinatorAgent extends Agent {
             for (Cell c : info.getRecyclingCenters()) showMessage(c.toString()); 
                      
             //@todo Add a new behaviour which initiates the turns of the game 
+            newMovements = new ArrayList<Movement>(info.getNumHarvesters()+info.getNumScouts());
+            
+            // initializes the behaviour that sends the movement info
+            CoordinatorAgent.this.addBehaviour(new MainLoopBehaviour(CoordinatorAgent.this, info.getTimePerTurn()));
+            
+            
           }
         } catch (Exception e) {
           showMessage("Incorrect content: "+e.toString());
@@ -203,6 +214,122 @@ public class CoordinatorAgent extends Agent {
 
 
   /*************************************************************************/
+  
+  class SendMovesBehaviour extends AchieveREInitiator {
+	  
+		private ACLMessage msgSent = null;
+	    
+	    public SendMovesBehaviour(Agent myAgent, ACLMessage requestMsg) {
+	      super(myAgent, requestMsg);
+	      //showMessage("Checking moves to send...");
+	      msgSent = requestMsg;
+	    }
 
+	    /**
+	     * Handle AGREE messages
+	     * @param msg Message to handle
+	     */
+	    protected void handleAgree(ACLMessage msg) {
+	      //showMessage("AGREE received from "+ ( (AID)msg.getSender()).getLocalName());
+	    }
+
+	    /**
+	     * Handle INFORM messages
+	     * @param msg Message
+	     */
+	    protected void handleInform(ACLMessage msg) {
+	    	//showMessage("INFORM received from "+ ( (AID)msg.getSender()).getLocalName()+" ... [OK]");
+	        try {
+	          info = (AuxInfo)msg.getContentObject();
+	          if (info instanceof AuxInfo) {
+	            //showMessage("Agents initial position: ");
+	            for (InfoAgent ia : info.getAgentsInitialPosition().keySet()){  
+	          	  //showMessage(ia.toString());
+	              Cell pos = (Cell)info.getAgentsInitialPosition().get(ia);
+	              //showMessage("c: " + pos);  	
+	            }
+	            //showMessage("Garbage discovered: ");
+	            for (int i=0; i<info.getMap().length; i++){
+	            	for (int j=0; j<info.getMap()[0].length; j++){
+	            		if (info.getCell(j,i).getCellType()==Cell.BUILDING)
+	            			if (info.getCell(j,i).getGarbageUnits()>0) showMessage(info.getCell(j,i).toString());
+	                }  
+	            }
+	            //showMessage("Cells with recycling centers: ");
+	            //for (Cell c : info.getRecyclingCenters()) //showMessage(c.toString()); 
+	                     
+
+	          }
+	        } catch (Exception e) {
+	          showMessage("Incorrect content: "+e.toString());
+	        }
+	    }
+
+	    /**
+	     * Handle NOT-UNDERSTOOD messages
+	     * @param msg Message
+	     */
+	    protected void handleNotUnderstood(ACLMessage msg) {
+	      showMessage("This message NOT UNDERSTOOD. \n");
+	    }
+
+	    /**
+	     * Handle FAILURE messages
+	     * @param msg Message
+	     */
+	    protected void handleFailure(ACLMessage msg) {
+	      showMessage("The action has failed.");
+
+	    } //End of handleFailure
+
+	    /**
+	     * Handle REFUSE messages
+	     * @param msg Message
+	     */
+	    protected void handleRefuse(ACLMessage msg) {
+	      showMessage("Action refused.");
+	    }
+	  } //Endof class SendMovesBehaviour
+
+  
+  /*************************************************************************/
+  
+  
+  /**
+   * Sends the information of the movements performed at every tick (turn) and
+   * waits for the new map information.
+   * 
+   * @author Marc Bolaños
+   *
+   */
+  private class MainLoopBehaviour extends TickerBehaviour {
+
+	public MainLoopBehaviour(Agent a, long period) {
+		super(a, period);
+	}
+
+	@Override
+	protected void onTick() {		
+
+		
+		// Requests the map again
+        ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+		request.clearAllReceiver();
+		request.addReceiver(CoordinatorAgent.this.centralAgent);
+		request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+
+	    try {
+	    	request.setContentObject(newMovements);
+	    } catch (Exception e) {
+	    	e.printStackTrace();
+	    }
+        CoordinatorAgent.this.addBehaviour(new SendMovesBehaviour(CoordinatorAgent.this, request));
+        
+        // Resets movements
+        newMovements = new ArrayList<Movement>(info.getNumHarvesters()+info.getNumScouts());
+	}
+
+  }
+  
 
 } //endof class CoordinatorAgent

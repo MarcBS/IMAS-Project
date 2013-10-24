@@ -38,6 +38,7 @@ public class AuxInfo implements java.io.Serializable {
 	private int numHarvesters;
 	private String[] typeHarvesters;
 	private int[] capacityHarvesters;
+	private long timeout;
 
 	private HashMap<InfoAgent, Cell> agentsInitialPosition = new HashMap<InfoAgent, Cell>(); 
 	// For each InfoAgent it contains its initial cell
@@ -45,6 +46,14 @@ public class AuxInfo implements java.io.Serializable {
 	private List<Cell> recyclingCenters = new ArrayList<Cell>(); 
 	// It contains the list of cells with recycling centers
 
+	public long getTimePerTurn(){
+		return timeout;
+	}
+	
+	public void setTimePerTurn(long t){
+		timeout = t;
+	}
+	
 	public Cell[][] getMap() {
 		return this.map;
 	}

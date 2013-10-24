@@ -50,7 +50,7 @@ public class InfoGame implements java.io.Serializable {
   public int getTurn() { return this.turn; }
   public void incrTurn() { this.turn++; }
   public int getGameDuration() {return this.gameDuration;}
-  public void setGameDuration(int d) {this.gameDuration = d;}
+  public void setGameDuration(int d) {this.gameDuration = d; info.setTimePerTurn(d);}
   public long getTimeout() {return this.timeout;}
   public void setTimeout(long n) {this.timeout = n;}	
   public float getProbGarbage() {return probGarbage;}
