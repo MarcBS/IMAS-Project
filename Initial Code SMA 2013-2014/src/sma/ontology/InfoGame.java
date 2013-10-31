@@ -12,7 +12,7 @@ import java.util.*;
  * <p><b>Copyright:</b> Copyright (c) 2013</p>
  * <p><b>Company:</b> Universitat Rovira i Virgili (<a
  * href="http://www.urv.cat">URV</a>)</p>
- * @author David Isern & Joan Albert López
+ * @author David Isern & Joan Albert Lï¿½pez
  * @see sma.CoordinatorAgent
  * @see sma.CentralAgent
  */
@@ -21,6 +21,8 @@ public class InfoGame implements java.io.Serializable {
   private AuxInfo info;  //Object sent to the CoordinatorAgent during the initialization
   private List<Cell> buildingsGarbage; //List of the undiscovered buildings containg garbage. 
   									   //It cannot be sent to the CoordinatorAgent.
+  // a list containing all the buildings
+  private List<Cell> buildings;
   
   private int turn=0;
   private int gameDuration;
@@ -32,6 +34,7 @@ public class InfoGame implements java.io.Serializable {
   public InfoGame() {
 	  info=new AuxInfo();
 	  buildingsGarbage=new java.util.ArrayList<Cell>();
+	  buildings=new java.util.ArrayList<Cell>();
   }
 
   public AuxInfo getInfo() {
@@ -130,6 +133,11 @@ public class InfoGame implements java.io.Serializable {
 			else{
 				if(str.charAt(0)=='b') {
 					this.info.map[row][col]= new Cell(Cell.BUILDING);
+					
+					// adds the building into the list
+					buildings.add(this.info.map[row][col]);
+					
+					
 					if (str.length()>1){
 						String type = str.substring(str.length()-2, str.length()-1);
 						int units = Integer.parseInt(str.substring(2, str.length()-2));
@@ -175,6 +183,14 @@ public List<Cell> getBuildingsGarbage() {
 
 public void setBuildingsGarbage(List<Cell> buildingsGarbage) {
 	this.buildingsGarbage = buildingsGarbage;
+}
+
+/**
+ * Returns a list with all the buildings
+ * @return
+ */
+public List<Cell> getAllBuildings(){
+	return buildings;
 }
 
 } //endof class InfoPartida

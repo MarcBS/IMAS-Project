@@ -213,7 +213,7 @@ public class CentralAgent extends Agent {
    * <p><b>Copyright:</b> Copyright (c) 2009</p>
    * <p><b>Company:</b> Universitat Rovira i Virgili (<a
    * href="http://www.urv.cat">URV</a>)</p>
-   * @author David Isern and Joan Albert López
+   * @author David Isern and Joan Albert Lï¿½pez
    * @see sma.ontology.Cell
    * @see sma.ontology.InfoGame
    */
@@ -298,7 +298,7 @@ public class CentralAgent extends Agent {
    * Performs the main loop of the application checking the moves of the agents and
    * updating the GUI until we reach the number of turns for this game.
    * 
-   * @author Marc Bolaños
+   * @author Marc Bolaï¿½os
    *
    */
   private class MainLoopBehaviour extends TickerBehaviour {
@@ -328,7 +328,17 @@ public class CentralAgent extends Agent {
 		}
 		
 		if(!game_finished){
-
+			
+			//get a random number to decide wether to add or not garbage
+			double d = Math.random();
+			if(d <= game.getProbGarbage()){
+				try {
+					addGarbage();
+					
+				} catch (Exception e) {
+					// do nothing
+				}
+			}
 			
 		} else {
 			
@@ -336,6 +346,40 @@ public class CentralAgent extends Agent {
 			
 		}
 		
+	}
+	/**
+	 * Adds garbage to the buildings in the map without garbage
+	 * @throws Exception
+	 */
+	private void addGarbage() throws Exception{
+		Random r = new Random();
+		java.util.List<Cell> all_buildings = game.getAllBuildings();
+		int index = 0;
+		
+		do{
+		index = (int) (Math.random() * all_buildings.size());	
+			
+		} while(all_buildings.get(index).getGarbageUnits() != 0);
+		
+		Cell b = all_buildings.get(index);
+		char type;
+		int units;
+		String[] types = {"G","P", "M", "A"};
+		
+		int v_type = (int) (Math.random() * 3);
+		type = types[v_type].charAt(0); 
+				
+		
+		units = (int) Math.abs(((r.nextGaussian()*5)+2));
+		if (units == 0){
+			units = 1;
+		}
+		
+		b.setGarbageType(type);
+		b.setGarbageUnits(units);
+		java.util.List<Cell> tmp = game.getBuildingsGarbage();
+		tmp.add(b);
+		game.setBuildingsGarbage(tmp);
 	}
 
   }
