@@ -67,6 +67,8 @@ public class ScoutCoordinatorAgent extends Agent{
 	      e.printStackTrace();
 	    }
 	    
+	    
+	    
 	}
 
 }

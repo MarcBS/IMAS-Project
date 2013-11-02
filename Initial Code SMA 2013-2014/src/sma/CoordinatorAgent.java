@@ -7,6 +7,8 @@ import java.sql.ResultSet;
 import java.util.ArrayList;
 
 
+
+
 //import jade.util.leap.ArrayList;
 import jade.util.leap.List;
 import jade.core.*;
@@ -35,11 +37,15 @@ import java.util.*;
 public class CoordinatorAgent extends Agent {
 
   private AuxInfo info;
-
+  private int countMapRequests = 0;
+  private int countMovementsReceived = 0;
+  
   private AID centralAgent;
   
   // initializes the array that will store the movement of each agent for each turn
   private ArrayList<Movement> newMovements;
+  private int movReceivedScouts = 0;
+  private int movReceivedHarvesters = 0;
 
  
   public CoordinatorAgent() {
@@ -95,24 +101,79 @@ public class CoordinatorAgent extends Agent {
     showMessage("Message OK");
     try {
       requestInicial.setContent("Initial request");
-      showMessage("Content OK" + requestInicial.getContent());
+      showMessage("Content OK " + requestInicial.getContent());
     } catch (Exception e) {
       e.printStackTrace();
     }
 
-    //we add a behaviour that sends the message and waits for an answer
-    this.addBehaviour(new RequesterBehaviour(this, requestInicial));
+    // Behaviour initial communication with CentralAgent
+    //this.addBehaviour(new RequesterBehaviour(this, requestInicial));
+    // Behaviour initial communication with CoordinatorHarvesters and CoordinatorScouts
+    //this.addBehaviour(new RequestResponseBehaviour(this, null));
 
     // setup finished. When we receive the last inform, the agent itself will add
     // a behaviour to send/receive actions
+    
+    
+    // Finite State Machine
+    FSMBehaviour fsm = new FSMBehaviour(this);
+    // Behaviour initial communication with CentralAgent
+    fsm.registerFirstState(new RequesterBehaviour(this, requestInicial), "STATE_1");
+    // Behaviour initial communication with CoordinatorHarvesters and CoordinatorScouts
+    fsm.registerState(new ListenRequestMap(this, null), "STATE_2");
+    // Waiting for movements from lower layer coordinators
+    fsm.registerState(new ReceiveMovements(this, null), "STATE_3");
+    // Send movements received to CentralAgent and wait for its map response
+    fsm.registerLastState(new SendMovesBehaviour(this, null), "STATE_4");
+    
+    // FSM transitions
+    fsm.registerDefaultTransition("STATE_1", "STATE_2");
+    fsm.registerTransition("STATE_2", "STATE_2", 1);
+    fsm.registerTransition("STATE_2", "STATE_3", 2);
+    fsm.registerTransition("STATE_3", "STATE_3", 1);
+    fsm.registerTransition("STATE_3", "STATE_4", 2);
+    fsm.registerDefaultTransition("STATE_4", "STATE_2");
+    
 
   } //endof setup
-
-
-
-
+  
+  
+  /**
+   * Manages the received moves updating the newMovements list.
+   * 
+   * @param moves Object containing 
+   */
+  private boolean processMovements(Object moves){
+	  ArrayList<Movement> mo_list = (ArrayList)moves;
+	  for(Movement m : mo_list){
+		  String agent_id = m.getAgentId();
+		  String agent_type = m.getAgentType();
+		  int[] pos = m.getPosition();
+		  // TODO: update list of movements
+		  if(agent_type.equals(UtilsAgents.SCOUT_AGENT)){ // scout
+			  newMovements.add(movReceivedScouts, m);
+			  movReceivedScouts++;
+		  } else if(agent_type.equals(UtilsAgents.HARVESTER_AGENT)){ // harvester
+			  newMovements.add(info.getNumScouts()+movReceivedHarvesters, m);
+			  movReceivedHarvesters++;
+		  }
+	  }
+	  
+	  showMessage("Saving MOVEMENTS");
+	  return true;
+  }
+  
   /*************************************************************************/
+  
 
+  /*
+   * 
+   * STATE_1
+   * Initial request to the CentralAgent.
+   * 
+   * @author Marc Bolaños
+   *
+   */
   /**
     * <p><B>Title:</b> IA2-SMA</p>
     * <p><b>Description:</b> Practical exercise 2011-12. Recycle swarm.</p>
@@ -172,13 +233,12 @@ public class CoordinatorAgent extends Agent {
             }
             showMessage("Cells with recycling centers: ");
             for (Cell c : info.getRecyclingCenters()) showMessage(c.toString()); 
-                     
-            //@todo Add a new behaviour which initiates the turns of the game 
-            newMovements = new ArrayList<Movement>(info.getNumHarvesters()+info.getNumScouts());
+                   
             
-            // initializes the behaviour that sends the movement info
-            CoordinatorAgent.this.addBehaviour(new MainLoopBehaviour(CoordinatorAgent.this, info.getTimePerTurn()));
-            
+            // Initialize movements list
+  		  	newMovements = new ArrayList<Movement>(info.getNumHarvesters()+info.getNumScouts());
+  		  	movReceivedScouts = 0;
+  		  	movReceivedHarvesters = 0;
             
           }
         } catch (Exception e) {
@@ -210,11 +270,196 @@ public class CoordinatorAgent extends Agent {
     protected void handleRefuse(ACLMessage msg) {
       showMessage("Action refused.");
     }
+    
+    public int onEnd(){
+    	return 0;
+    }
+    
   } //Endof class RequesterBehaviour
 
+  
+/*************************************************************************/
+  
+  /**
+   * 
+   * STATE_2
+   * Waiting for initial requests from lower layer coordinators.
+   * 
+   * @author Marc Bolaños
+   *
+   */
+  private class ListenRequestMap extends AchieveREResponder {
+
+	    /**
+	     * Constructor for the <code>RequestResponseBehaviour</code> class.
+	     * @param coordinatorAgent The agent owning this behaviour
+	     * @param mt Template to receive future responses in this conversation
+	     */
+	    public ListenRequestMap(CoordinatorAgent coordinatorAgent, MessageTemplate mt) {
+	      super(coordinatorAgent, mt);
+	      showMessage("Waiting for Map REQUESTs from authorized agents");
+	    }
+
+	    protected ACLMessage prepareResponse(ACLMessage msg) {
+	      /* method called when the message has been received. If the message to send
+	       * is an AGREE the behaviour will continue with the method prepareResultNotification. */
+	      ACLMessage reply = msg.createReply();
+	      try {
+	        Object contentRebut = (Object)msg.getContent();
+	        if(contentRebut.equals("get map")) {
+	        	showMessage("Map request from " + msg.getSender() + " received.");
+	        	reply.setPerformative(ACLMessage.AGREE);
+	        }
+	      } catch (Exception e) {
+	        e.printStackTrace();
+	      }
+	      //showMessage("Answer sent"); //: \n"+reply.toString());
+	      return reply;
+	    } //endof prepareResponse   
+
+	    /**
+	     * This method is called after the response has been sent and only when
+	     * one of the following two cases arise: the response was an agree message
+	     * OR no response message was sent. This default implementation return null
+	     * which has the effect of sending no result notification. Programmers
+	     * should override the method in case they need to react to this event.
+	     * @param msg ACLMessage the received message
+	     * @param response ACLMessage the previously sent response message
+	     * @return ACLMessage to be sent as a result notification (i.e. one of
+	     * inform, failure).
+	     */
+	    protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
+
+	      // it is important to make the createReply in order to keep the same context of
+	      // the conversation
+	      ACLMessage reply = msg.createReply();
+	      reply.setPerformative(ACLMessage.INFORM);
+
+	      try {
+	        reply.setContentObject(info);
+	      } catch (Exception e) {
+	        reply.setPerformative(ACLMessage.FAILURE);
+	        System.err.println(e.toString());
+	        e.printStackTrace();
+	      }
+	      //showMessage("Answer sent"); //+reply.toString());
+	      return reply;
+
+	    } //endof prepareResultNotification
+
+
+	    /**
+	     *  No need for any specific action to reset this behaviour
+	     */
+	    public void reset() {
+	    }
+	    
+	    public int onEnd(){
+	    	countMapRequests++;
+	    	int thisC = countMapRequests;
+	    	countMapRequests = countMapRequests%2;
+	    	showMessage("onEnd ListenRequestMap " + String.valueOf(thisC));
+	    	return thisC;
+	    }
+
+	  } //end of RequestResponseBehaviour
+  
+  
+/*************************************************************************/
+  
+  /**
+   * 
+   * STATE_3
+   * Waiting for new movements from lower layer coordinators.
+   * 
+   * @author Marc Bolaños
+   *
+   */
+  private class ReceiveMovements extends AchieveREResponder {
+
+	    /**
+	     * Constructor for the <code>RequestResponseBehaviour</code> class.
+	     * @param coordinatorAgent The agent owning this behaviour
+	     * @param mt Template to receive future responses in this conversation
+	     */
+	    public ReceiveMovements(CoordinatorAgent coordinatorAgent, MessageTemplate mt) {
+	      super(coordinatorAgent, mt);
+	      showMessage("Waiting for movements from lower layers.");
+	    }
+
+	    protected ACLMessage prepareResponse(ACLMessage msg) {
+	      /* method called when the message has been received. If the message to send
+	       * is an AGREE the behaviour will continue with the method prepareResultNotification. */
+	      ACLMessage reply = msg.createReply();
+	      try {
+	        Object contentRebut = (Object)msg.getContent();
+	        if(processMovements(contentRebut)) {
+	        	showMessage("New movements from " + msg.getSender() + " received.");
+	        	reply.setPerformative(ACLMessage.AGREE);
+	        }
+	      } catch (Exception e) {
+	        e.printStackTrace();
+	      }
+	      //showMessage("Answer sent"); //: \n"+reply.toString());
+	      return reply;
+	    } //endof prepareResponse   
+
+	    /**
+	     * This method is called after the response has been sent and only when
+	     * one of the following two cases arise: the response was an agree message
+	     * OR no response message was sent. This default implementation return null
+	     * which has the effect of sending no result notification. Programmers
+	     * should override the method in case they need to react to this event.
+	     * @param msg ACLMessage the received message
+	     * @param response ACLMessage the previously sent response message
+	     * @return ACLMessage to be sent as a result notification (i.e. one of
+	     * inform, failure).
+	     */
+	    protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
+
+	      // it is important to make the createReply in order to keep the same context of
+	      // the conversation
+	      ACLMessage reply = msg.createReply();
+	      reply.setPerformative(ACLMessage.INFORM);
+
+	      try {
+	    	  reply.setContent("ok movements");
+	      } catch (Exception e) {
+	        reply.setPerformative(ACLMessage.FAILURE);
+	        System.err.println(e.toString());
+	        e.printStackTrace();
+	      }
+	      //showMessage("Answer sent"); //+reply.toString());
+	      return reply;
+
+	    } //endof prepareResultNotification
+
+
+	    /**
+	     *  No need for any specific action to reset this behaviour
+	     */
+	    public void reset() {
+	    }
+	    
+	    public int onEnd(){
+	    	countMovementsReceived++;
+	    	int thisC = countMovementsReceived;
+	    	countMovementsReceived = countMovementsReceived%2;
+	    	showMessage("onEnd ReceiveMovements " + String.valueOf(thisC));
+	    	return thisC;
+	    }
+
+	  } //end of RequestResponseBehaviour
 
   /*************************************************************************/
   
+  /**
+   * STATE_4
+   * Sends the movements to the CentralAgent and reeds the new map information.
+   * 
+   * @author Marc Bolaños
+   *
+   */
   class SendMovesBehaviour extends AchieveREInitiator {
 	  
 		private ACLMessage msgSent = null;
@@ -222,7 +467,25 @@ public class CoordinatorAgent extends Agent {
 	    public SendMovesBehaviour(Agent myAgent, ACLMessage requestMsg) {
 	      super(myAgent, requestMsg);
 	      //showMessage("Checking moves to send...");
-	      msgSent = requestMsg;
+	      
+	      	// Requests the map again
+	        ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+			request.clearAllReceiver();
+			request.addReceiver(CoordinatorAgent.this.centralAgent);
+			request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+
+		    try {
+		    	request.setContentObject(newMovements);
+		    } catch (Exception e) {
+		    	e.printStackTrace();
+		    }
+		    
+		  // Reset movements list
+		  newMovements = new ArrayList<Movement>(info.getNumHarvesters()+info.getNumScouts());
+		  movReceivedScouts = 0;
+		  movReceivedHarvesters = 0;
+		    
+	      msgSent = request;
 	    }
 
 	    /**
@@ -289,47 +552,16 @@ public class CoordinatorAgent extends Agent {
 	    protected void handleRefuse(ACLMessage msg) {
 	      showMessage("Action refused.");
 	    }
+	    
+	    public int onEnd(){
+	    	return 0;
+	    }
+	    
 	  } //Endof class SendMovesBehaviour
 
   
   /*************************************************************************/
   
-  
-  /**
-   * Sends the information of the movements performed at every tick (turn) and
-   * waits for the new map information.
-   * 
-   * @author Marc Bolaños
-   *
-   */
-  private class MainLoopBehaviour extends TickerBehaviour {
-
-	public MainLoopBehaviour(Agent a, long period) {
-		super(a, period);
-	}
-
-	@Override
-	protected void onTick() {		
-
-		
-		// Requests the map again
-        ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
-		request.clearAllReceiver();
-		request.addReceiver(CoordinatorAgent.this.centralAgent);
-		request.setProtocol(InteractionProtocol.FIPA_REQUEST);
-
-	    try {
-	    	request.setContentObject(newMovements);
-	    } catch (Exception e) {
-	    	e.printStackTrace();
-	    }
-        CoordinatorAgent.this.addBehaviour(new SendMovesBehaviour(CoordinatorAgent.this, request));
-        
-        // Resets movements
-        newMovements = new ArrayList<Movement>(info.getNumHarvesters()+info.getNumScouts());
-	}
-
-  }
   
 
 } //endof class CoordinatorAgent
