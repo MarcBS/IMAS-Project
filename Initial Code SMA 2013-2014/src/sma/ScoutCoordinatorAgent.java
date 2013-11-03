@@ -1,14 +1,17 @@
 package sma;
 
 import sma.ontology.AuxInfo;
+import sma.ontology.InfoGame;
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.SimpleBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.domain.FIPANames.InteractionProtocol;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.UnreadableException;
 
 public class ScoutCoordinatorAgent extends Agent{
 	
@@ -67,8 +70,62 @@ public class ScoutCoordinatorAgent extends Agent{
 	      e.printStackTrace();
 	    }
 	    
-	    
+	    // Add behavior to request game info
+	    this.addBehaviour(new requestGameInfo(this, coordinatorAgent));
 	    
 	}
+	
+	/**
+	 * 
+	 * @author Albert Busqué
+	 *
+	 * Class that implements behavior for requesting game info (map)
+	 * NOT TESTED YET!!!
+	 */
+	private class requestGameInfo extends SimpleBehaviour 
+	{
+		private AID receptor;
+		
+		public requestGameInfo (Agent a, AID r)
+		{
+			super(a);
+			this.receptor = r;
+		}
 
+		@Override
+		public void action() {
+			// Make the request
+			ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+			request.clearAllReceiver();
+		    request.addReceiver(receptor);
+		    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+		    showMessage("Requesting game info");
+		    try {
+			      request.setContent("get game info");
+			      //showMessage("Content OK" + request.getContent());
+			      send(request);
+			    } catch (Exception e) {
+			      e.printStackTrace();
+			    }
+		    
+		    //Reception of game info
+		    showMessage("Receiving game info");
+		    ACLMessage reply = myAgent.blockingReceive();
+		    if (reply != null) {    	
+		    	try {
+					AuxInfo myInfo = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
+					showMessage(myInfo.getMap().toString());
+				} catch (UnreadableException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}  	
+		    }
+		}
+
+		@Override
+		public boolean done() {
+			// TODO Auto-generated method stub
+			return false;
+		}
+	}
 }
