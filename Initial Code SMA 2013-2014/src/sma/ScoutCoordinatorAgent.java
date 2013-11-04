@@ -65,13 +65,13 @@ public class ScoutCoordinatorAgent extends Agent{
 	    showMessage("Message OK");
 	    try {
 	      requestInicial.setContent("Initial request");
-	      showMessage("Content OK" + requestInicial.getContent());
+	      showMessage("Content OK " + requestInicial.getContent());
 	    } catch (Exception e) {
 	      e.printStackTrace();
 	    }
 	    
 	    // Add behavior to request game info
-	    this.addBehaviour(new requestGameInfo(this, coordinatorAgent));
+	    this.addBehaviour(new RequestGameInfo(this, coordinatorAgent));
 	    
 	}
 	
@@ -82,11 +82,11 @@ public class ScoutCoordinatorAgent extends Agent{
 	 * Class that implements behavior for requesting game info (map)
 	 * NOT TESTED YET!!!
 	 */
-	private class requestGameInfo extends SimpleBehaviour 
+	protected class RequestGameInfo extends SimpleBehaviour 
 	{
 		private AID receptor;
 		
-		public requestGameInfo (Agent a, AID r)
+		public RequestGameInfo (Agent a, AID r)
 		{
 			super(a);
 			this.receptor = r;
@@ -99,26 +99,62 @@ public class ScoutCoordinatorAgent extends Agent{
 			request.clearAllReceiver();
 		    request.addReceiver(receptor);
 		    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
-		    showMessage("Requesting game info");
 		    try {
-			      request.setContent("get game info");
-			      //showMessage("Content OK" + request.getContent());
+			      request.setContent("get map");
 			      send(request);
+			      showMessage("Requesting game info to "+receptor);
 			    } catch (Exception e) {
 			      e.printStackTrace();
 			    }
 		    
 		    //Reception of game info
-		    showMessage("Receiving game info");
-		    ACLMessage reply = myAgent.blockingReceive();
-		    if (reply != null) {    	
-		    	try {
-					AuxInfo myInfo = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
-					showMessage(myInfo.getMap().toString());
-				} catch (UnreadableException e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}  	
+		    /*for (int i=0; i<2; i++)
+		    {
+			    ACLMessage reply = myAgent.blockingReceive();
+			    //showMessage("BLABLABJSBJBJABDJ");
+			    if (reply != null && reply.getPerformative() == ACLMessage.INFORM) {    	
+			    	try {
+			    		showMessage("Recieved game info from "+reply.getSender());
+						AuxInfo myInfo = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
+						showMessage(Long.toString(myInfo.getTimePerTurn()));
+					} catch (UnreadableException e) {
+						// TODO Auto-generated catch block
+						//e.printStackTrace();
+						System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
+					}  	
+			    }
+		    }*/
+		  /*Reception of game info
+		   * 
+		   * The protocol is in two steps: 
+		   * 	1. Sender sent an AGREE/FAILURE message
+		   * 	2. Sender sent INFORM  message containing the AuxInfo object
+		   */
+		    for (int i=0; i<2; i++)
+		    {
+		    	ACLMessage reply = myAgent.blockingReceive();
+		    	if (reply != null)
+		    	{
+		    		switch (reply.getPerformative())
+		    		{
+			    		case ACLMessage.AGREE:
+			    			showMessage("Recieved AGREE from "+reply.getSender());
+			    			break;
+			    		case ACLMessage.INFORM:
+							try {
+								AuxInfo myInfo = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
+								showMessage("Recieved game info from "+reply.getSender());
+								showMessage(Long.toString(myInfo.getTimePerTurn()));
+							} catch (UnreadableException e) {
+								// TODO Auto-generated catch block
+								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
+							}
+			    			break;
+			    		case ACLMessage.FAILURE:
+			    			System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: Performative was FAILURE");
+			    			break;
+		    		}
+		    	}
 		    }
 		}
 
