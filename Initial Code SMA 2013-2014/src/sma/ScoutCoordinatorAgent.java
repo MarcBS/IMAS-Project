@@ -4,6 +4,7 @@ import sma.ontology.AuxInfo;
 import sma.ontology.InfoGame;
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.OneShotBehaviour;
 import jade.core.behaviours.SimpleBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
@@ -70,6 +71,12 @@ public class ScoutCoordinatorAgent extends Agent{
 	      e.printStackTrace();
 	    }
 	    
+	    try {
+	        Thread.sleep(5000);
+	    } catch(InterruptedException ex) {
+	        Thread.currentThread().interrupt();
+	    }
+	    
 	    // Add behavior to request game info
 	    this.addBehaviour(new RequestGameInfo(this, coordinatorAgent));
 	    
@@ -82,7 +89,7 @@ public class ScoutCoordinatorAgent extends Agent{
 	 * Class that implements behavior for requesting game info (map)
 	 * NOT TESTED YET!!!
 	 */
-	protected class RequestGameInfo extends SimpleBehaviour 
+	protected class RequestGameInfo extends OneShotBehaviour 
 	{
 		private AID receptor;
 		
@@ -144,7 +151,6 @@ public class ScoutCoordinatorAgent extends Agent{
 							try {
 								AuxInfo myInfo = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
 								showMessage("Recieved game info from "+reply.getSender());
-								showMessage(Long.toString(myInfo.getTimePerTurn()));
 							} catch (UnreadableException e) {
 								// TODO Auto-generated catch block
 								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
@@ -158,10 +164,5 @@ public class ScoutCoordinatorAgent extends Agent{
 		    }
 		}
 
-		@Override
-		public boolean done() {
-			// TODO Auto-generated method stub
-			return false;
-		}
 	}
 }
