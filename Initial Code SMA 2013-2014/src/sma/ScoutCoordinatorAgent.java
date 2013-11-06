@@ -1,7 +1,12 @@
 package sma;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
+
 import sma.ontology.AuxInfo;
-import sma.ontology.InfoGame;
+import sma.ontology.Cell;
+import sma.ontology.InfoAgent;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.OneShotBehaviour;
@@ -19,6 +24,12 @@ public class ScoutCoordinatorAgent extends Agent{
 	private AuxInfo info;
 
 	private AID coordinatorAgent;
+	
+	// array storing the not handled messages
+	private MessagesList messagesQueue = new MessagesList(this);
+	
+	// List of Scout AID
+	private ArrayList<AID> listScouts = new ArrayList<AID>();
 
 	public ScoutCoordinatorAgent(){}
 	
@@ -71,9 +82,13 @@ public class ScoutCoordinatorAgent extends Agent{
 	      e.printStackTrace();
 	    }
 	    
+	    //TODO Implement FSM
+	    
 	    // Add behavior to request game info
 	    this.addBehaviour(new RequestGameInfo(this, coordinatorAgent));
 	    
+	    // Add behavior to send game info to scout agents
+	    //this.addBehaviour(new SendGameInfo(this));
 	}
 	
 	/**
@@ -86,6 +101,7 @@ public class ScoutCoordinatorAgent extends Agent{
 	protected class RequestGameInfo extends OneShotBehaviour 
 	{
 		private AID receptor;
+		private boolean parsedAID = false;
 		
 		public RequestGameInfo (Agent a, AID r)
 		{
@@ -108,32 +124,16 @@ public class ScoutCoordinatorAgent extends Agent{
 			      e.printStackTrace();
 			    }
 		    
-		    //Reception of game info
-		    /*for (int i=0; i<2; i++)
-		    {
-			    ACLMessage reply = myAgent.blockingReceive();
-			    //showMessage("BLABLABJSBJBJABDJ");
-			    if (reply != null && reply.getPerformative() == ACLMessage.INFORM) {    	
-			    	try {
-			    		showMessage("Recieved game info from "+reply.getSender());
-						AuxInfo myInfo = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
-						showMessage(Long.toString(myInfo.getTimePerTurn()));
-					} catch (UnreadableException e) {
-						// TODO Auto-generated catch block
-						//e.printStackTrace();
-						System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
-					}  	
-			    }
-		    }*/
 		  /*Reception of game info
 		   * 
 		   * The protocol is in two steps: 
 		   * 	1. Sender sent an AGREE/FAILURE message
 		   * 	2. Sender sent INFORM  message containing the AuxInfo object
 		   */
-		    for (int i=0; i<2; i++)
+		    boolean okInfo = false;
+		    while(!okInfo)
 		    {
-		    	ACLMessage reply = myAgent.blockingReceive();
+		    	ACLMessage reply = messagesQueue.getMessage();
 		    	if (reply != null)
 		    	{
 		    		switch (reply.getPerformative())
@@ -143,20 +143,90 @@ public class ScoutCoordinatorAgent extends Agent{
 			    			break;
 			    		case ACLMessage.INFORM:
 							try {
-								AuxInfo myInfo = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
+								info = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
+								okInfo = true;
 								showMessage("Recieved game info from "+reply.getSender());
+								if (!parsedAID)
+								{
+									parseAID();
+									parsedAID = true;
+								}
 							} catch (UnreadableException e) {
-								// TODO Auto-generated catch block
+								messagesQueue.add(reply);
 								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
 							}
 			    			break;
 			    		case ACLMessage.FAILURE:
 			    			System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: Performative was FAILURE");
 			    			break;
+			    		default:
+			    			// Unexpected messages received must be added to the queue.
+			    			messagesQueue.add(reply);
+			    			break;
 		    		}
 		    	}
 		    }
+		    messagesQueue.endRetrieval();
 		}
+		
+		/*
+		 * Gets AID from Scouts Agents and store them in listScouts
+		 */
+		private void parseAID()
+		{
+			Collection<Cell> cells = info.getAgentsInitialPosition().values();
+			Iterator<Cell> it = cells.iterator();
+			
+			while(it.hasNext()) 
+			{
+				Cell cell = it.next();
+				if (cell.isThereAnAgent())
+				{
+					InfoAgent agent = cell.getAgent();
+					if (agent.getAgentType() == InfoAgent.SCOUT)
+					{
+						listScouts.add(agent.getAID());
+						showMessage("PARSED!!!!!!!! "+agent.getAID());
+					}			
+				}
+			}
+		}	
+	}
+	
+	/**
+	 * 
+	 * @author Albert
+	 * 
+	 * Class that implements behavior for sending game info (map) to all scout agents
+	 * NOT TESTED YET!!!
+	 */
+	protected class SendGameInfo extends OneShotBehaviour 
+	{
 
+		public SendGameInfo (Agent a)
+		{
+			super(a);
+		}
+		
+		@Override
+		public void action() {
+			/* Make a broadcast to all scouts agent sending the game info */
+			for (int i=0; i<listScouts.size(); i++)
+			{	
+				ACLMessage request = new ACLMessage(ACLMessage.INFORM);
+				request.clearAllReceiver();
+			    request.addReceiver(listScouts.get(i));
+			    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+			    try 
+			    {
+			    	request.setContentObject(info);
+			    } catch (Exception e) {
+				    	request.setPerformative(ACLMessage.FAILURE);
+				    	e.printStackTrace();
+				    	}
+			    send(request);
+			    showMessage("Sending game info to "+listScouts.get(i));
+			}
+		}	
 	}
 }

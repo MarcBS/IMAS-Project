@@ -232,6 +232,7 @@ public class CoordinatorAgent extends Agent {
 			    		default:
 			    			// Unexpected messages received must be added to the queue.
 			    			messagesQueue.add(reply);
+			    			break;
 		    		}
 		    	}
 		    	
