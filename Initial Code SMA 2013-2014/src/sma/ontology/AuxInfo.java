@@ -4,6 +4,8 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.StringTokenizer;
 
 import sma.gui.UtilsGUI;
@@ -26,7 +28,7 @@ import java.util.*;
  * href="http://www.urv.cat">URV</a>)
  * </p>
  * 
- * @author David Isern & Joan Albert López
+ * @author David Isern & Joan Albert Lï¿½pez
  * @see sma.CoordinatorAgent
  * @see sma.CentralAgent
  */
@@ -44,6 +46,12 @@ public class AuxInfo implements java.io.Serializable {
 	
 	private List<Cell> recyclingCenters = new ArrayList<Cell>(); 
 	// It contains the list of cells with recycling centers
+	
+	// a list containing all the buildings
+	private List<Cell> buildings = new ArrayList<Cell>();
+	
+	
+	
 	
 	public Cell[][] getMap() {
 		return this.map;
@@ -117,5 +125,14 @@ public class AuxInfo implements java.io.Serializable {
 
 	public void addRecyclingCenter(Cell c) {
 		recyclingCenters.add(c);
+	}
+
+	public void addBuilding(Cell cell) {
+		buildings.add(cell);
+		
+	}
+	
+	public List<Cell> getAllBuildings(){
+		return buildings;
 	}
 }

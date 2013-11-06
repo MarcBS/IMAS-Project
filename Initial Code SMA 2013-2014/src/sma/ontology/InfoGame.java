@@ -22,7 +22,6 @@ public class InfoGame implements java.io.Serializable {
   private List<Cell> buildingsGarbage; //List of the undiscovered buildings containg garbage. 
   									   //It cannot be sent to the CoordinatorAgent.
   // a list containing all the buildings
-  private List<Cell> buildings;
   
   private int turn=0;
   private int gameDuration;
@@ -34,7 +33,6 @@ public class InfoGame implements java.io.Serializable {
   public InfoGame() {
 	  info=new AuxInfo();
 	  buildingsGarbage=new java.util.ArrayList<Cell>();
-	  buildings=new java.util.ArrayList<Cell>();
   }
 
   public AuxInfo getInfo() {
@@ -135,7 +133,8 @@ public class InfoGame implements java.io.Serializable {
 					this.info.map[row][col]= new Cell(Cell.BUILDING);
 					
 					// adds the building into the list
-					buildings.add(this.info.map[row][col]);
+					this.info.addBuilding(this.info.map[row][col]);
+					//buildings.add(this.info.map[row][col]);
 					
 					
 					if (str.length()>1){
@@ -190,7 +189,7 @@ public void setBuildingsGarbage(List<Cell> buildingsGarbage) {
  * @return
  */
 public List<Cell> getAllBuildings(){
-	return buildings;
+	return this.info.getAllBuildings();
 }
 
 } //endof class InfoPartida
