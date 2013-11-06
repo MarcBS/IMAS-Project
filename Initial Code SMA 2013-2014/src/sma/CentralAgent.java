@@ -4,8 +4,10 @@ import java.lang.*;
 import java.io.*;
 import java.sql.SQLException;
 import java.sql.ResultSet;
-
 import java.util.ArrayList;
+
+
+
 // import jade.util.leap.ArrayList;
 import jade.util.leap.List;
 import jade.core.*;
@@ -20,6 +22,8 @@ import jade.proto.AchieveREInitiator;
 import jade.proto.AchieveREResponder;
 import sma.ontology.*;
 import sma.gui.*;
+import jade.wrapper.*;
+import jade.wrapper.AgentContainer;
 
 import java.util.*;
 
@@ -37,7 +41,10 @@ public class CentralAgent extends Agent {
   private sma.gui.GraphicInterface gui;
   private sma.ontology.InfoGame game;
   private java.util.List<Cell> agents = null;
-
+  
+  private static String harvesterName = "h";
+  private static String scoutName = "s";
+  
   private AID coordinatorAgent;
   private int turnLastMap = 0;
 
@@ -56,17 +63,35 @@ public class CentralAgent extends Agent {
 
   private java.util.List<Cell> placeAgents(InfoGame currentGame) throws Exception {
 	  //Temporal version. Agents must be randomly placed
+	  int x=0, y=0;
       java.util.List<Cell> agents = new java.util.ArrayList<Cell>();
+      y = 9;
+      
+      //Create the object to create the agents and get the main controller
+      UtilsAgents utils = new UtilsAgents();
+      AgentContainer container = this.getContainerController();
+      Object [] parameters = null;
+      String agentName = "";
+      
       for(int k=0; k<currentGame.getInfo().getNumScouts(); k++) {
-        InfoAgent b = new InfoAgent(InfoAgent.SCOUT);
-        ((currentGame.getInfo().getMap())[9+k][9]).addAgent(b);
-        agents.add(currentGame.getInfo().getCell(9+k,9));
+    	  x = 9+k;
+    	  InfoAgent b = new InfoAgent(InfoAgent.SCOUT);
+    	  agentName = this.scoutName+String.valueOf(k);
+    	  
+          utils.createAgent(container, agentName, "sma.ScoutAgent",parameters);
+        ((currentGame.getInfo().getMap())[x][y]).addAgent(b);
+        agents.add(currentGame.getInfo().getCell(x,y));
       }
 
+      y = 0;
       for(int k=0; k<currentGame.getInfo().getNumHarvesters(); k++) {
-    	InfoAgent p = new InfoAgent(InfoAgent.HARVESTER);
-        ((currentGame.getInfo().getMap())[k+2][0]).addAgent(p);
-        agents.add( currentGame.getInfo().getCell(k+2,0));
+    	  x = k+2;
+    	  InfoAgent p = new InfoAgent(InfoAgent.HARVESTER);
+    	  agentName = this.harvesterName+String.valueOf(k);
+    	  
+    	  utils.createAgent(container, agentName, "sma.HarvesterAgent",parameters);
+    	  ((currentGame.getInfo().getMap())[x][y]).addAgent(p);
+    	  agents.add( currentGame.getInfo().getCell(x,y));
       }
       return agents;
     }
@@ -213,7 +238,7 @@ public class CentralAgent extends Agent {
    * <p><b>Copyright:</b> Copyright (c) 2009</p>
    * <p><b>Company:</b> Universitat Rovira i Virgili (<a
    * href="http://www.urv.cat">URV</a>)</p>
-   * @author David Isern and Joan Albert L�pez
+   * @author David Isern and Joan Albert L���pez
    * @see sma.ontology.Cell
    * @see sma.ontology.InfoGame
    */
@@ -298,7 +323,7 @@ public class CentralAgent extends Agent {
    * Performs the main loop of the application checking the moves of the agents and
    * updating the GUI until we reach the number of turns for this game.
    * 
-   * @author Marc Bola�os
+   * @author Marc Bola���os
    *
    */
   private class MainLoopBehaviour extends TickerBehaviour {
