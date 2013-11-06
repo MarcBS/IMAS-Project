@@ -71,12 +71,6 @@ public class ScoutCoordinatorAgent extends Agent{
 	      e.printStackTrace();
 	    }
 	    
-	    try {
-	        Thread.sleep(5000);
-	    } catch(InterruptedException ex) {
-	        Thread.currentThread().interrupt();
-	    }
-	    
 	    // Add behavior to request game info
 	    this.addBehaviour(new RequestGameInfo(this, coordinatorAgent));
 	    

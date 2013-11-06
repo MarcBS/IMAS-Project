@@ -46,6 +46,9 @@ public class CoordinatorAgent extends Agent {
   private ArrayList<Cell> newMovements;
   private int movReceivedScouts = 0;
   private int movReceivedHarvesters = 0;
+  
+  // array storing the not handled messages
+  private MessagesList messagesQueue = new MessagesList(this);
 
  
   public CoordinatorAgent() {
@@ -201,30 +204,40 @@ public class CoordinatorAgent extends Agent {
 
 		    boolean okInfo = false;
 		    while(!okInfo){
-		    	ACLMessage reply = myAgent.blockingReceive();
+		    	
+		    	ACLMessage reply = messagesQueue.getMessage();
+		    		
 		    	if (reply != null)
 		    	{
 		    		switch (reply.getPerformative())
 		    		{
 			    		case ACLMessage.AGREE:
-			    			showMessage("Recieved AGREE from "+reply.getSender());
+			    			showMessage("Recieved AGREE from "+reply.getSender().getLocalName());
 			    			break;
 			    		case ACLMessage.INFORM:
 							try {
 								info = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
-								showMessage("Recieved game info from "+reply.getSender());
+								okInfo = true;
+								showMessage("Received game info from "+reply.getSender().getLocalName());
 							} catch (UnreadableException e) {
-								// TODO Auto-generated catch block
+								// Unexpected messages received must be added to the queue.
+								messagesQueue.add(reply);
+								
 								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
 							}
-							okInfo = true;
 			    			break;
 			    		case ACLMessage.FAILURE:
 			    			System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: Performative was FAILURE");
 			    			break;
+			    		default:
+			    			// Unexpected messages received must be added to the queue.
+			    			messagesQueue.add(reply);
 		    		}
 		    	}
+		    	
 		    }
+		    
+		    messagesQueue.endRetrieval();
 		}
 
 		@Override
@@ -260,15 +273,16 @@ public class CoordinatorAgent extends Agent {
 			showMessage("STATE_2");
 			showMessage("Waiting for Map REQUESTs from authorized agents");
 			
-		    for (int i=0; i<2; i++)
-		    {
-		    	ACLMessage msg = myAgent.blockingReceive();
+			boolean okGetMap = false;
+		    while(!okGetMap){
+		    	ACLMessage msg = messagesQueue.getMessage();
 		    	if (msg != null)
 		    	{
 		    		// If "get map" request received
 		    		Object contentRebut = (Object)msg.getContent();
 			        if(contentRebut.equals("get map")) {
-			        	showMessage("Map request from " + msg.getSender() + " received.");
+			        	okGetMap = true;
+			        	showMessage("Map request from " + msg.getSender().getLocalName() + " received.");
 			        	// Send agree
 			        	ACLMessage reply1 = msg.createReply();
 			        	reply1.setPerformative(ACLMessage.AGREE);
@@ -287,10 +301,15 @@ public class CoordinatorAgent extends Agent {
 			  	      		e.printStackTrace();
 			  	      	}
 			  	      	send(reply2);
+			        } else {
+			        	messagesQueue.add(msg);
 			        }
 		    		
 		    	}
 		    }
+		    
+		    messagesQueue.endRetrieval();
+		    
 		}
 
 		@Override
@@ -417,32 +436,40 @@ public class CoordinatorAgent extends Agent {
 			showMessage("STATE_3");
 			showMessage("Waiting for movements from lower layers.");
 
-			ACLMessage msg = myAgent.blockingReceive();
+			boolean okMovements = false;
+			while(!okMovements){
+				ACLMessage msg = messagesQueue.getMessage();
+				
+				Object contentRebut = (Object)msg.getContent();
+		        if(processMovements(contentRebut)) {
+		        	okMovements = true;
+		        	showMessage("New movements from " + msg.getSender().getLocalName() + " received.");
+		        	
+		        	// Send agree message
+		        	ACLMessage reply1 = msg.createReply();
+		        	reply1.setPerformative(ACLMessage.AGREE);
+		        	send(reply1);
+		        	
+		        	// Send "ok movements" informative message
+		        	ACLMessage reply2 = msg.createReply();
+			  	    reply2.setPerformative(ACLMessage.INFORM);
+		
+			  	    try {
+			  	    	reply2.setContent("ok movements");
+			  	    	send(reply2);
+			  	    } catch (Exception e) {
+			  	        reply2.setPerformative(ACLMessage.FAILURE);
+			  	        System.err.println(e.toString());
+			  	        e.printStackTrace();
+			  	    }
+		        
+		        } else {
+		        	messagesQueue.add(msg);
+		        }
+			}
 			
-			Object contentRebut = (Object)msg.getContent();
-	        if(processMovements(contentRebut)) {
-	        	showMessage("New movements from " + msg.getSender() + " received.");
-	        	
-	        	// Send agree message
-	        	ACLMessage reply1 = msg.createReply();
-	        	reply1.setPerformative(ACLMessage.AGREE);
-	        	send(reply1);
-	        	
-	        	// Send "ok movements" informative message
-	        	ACLMessage reply2 = msg.createReply();
-		  	    reply2.setPerformative(ACLMessage.INFORM);
-	
-		  	    try {
-		  	    	reply2.setContent("ok movements");
-		  	    	send(reply2);
-		  	    } catch (Exception e) {
-		  	        reply2.setPerformative(ACLMessage.FAILURE);
-		  	        System.err.println(e.toString());
-		  	        e.printStackTrace();
-		  	    }
+	        messagesQueue.endRetrieval();
 	        
-	        }
-			
 		}
 
 		@Override
@@ -580,31 +607,39 @@ public class CoordinatorAgent extends Agent {
 			movReceivedHarvesters = 0;
 			
 			// Receiving the new AuxInfo from the CentralAgent
-		    for (int i=0; i<2; i++)
-		    {
-		    	ACLMessage reply = myAgent.blockingReceive();
+			boolean auxReceived = false;
+			while(!auxReceived){
+				
+		    	ACLMessage reply = messagesQueue.getMessage();
 		    	if (reply != null)
 		    	{
 		    		switch (reply.getPerformative())
 		    		{
 			    		case ACLMessage.AGREE:
-			    			showMessage("Recieved AGREE from "+reply.getSender());
+			    			showMessage("Recieved AGREE from "+reply.getSender().getLocalName());
 			    			break;
 			    		case ACLMessage.INFORM:
 							try {
 								info = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
-								showMessage("Recieved game info from "+reply.getSender());
+								auxReceived = true;
+								showMessage("Recieved game info from "+reply.getSender().getLocalName());
 							} catch (UnreadableException e) {
-								// TODO Auto-generated catch block
+								messagesQueue.add(reply);
 								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
 							}
 			    			break;
 			    		case ACLMessage.FAILURE:
 			    			System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: Performative was FAILURE");
 			    			break;
+			    		default:
+			    			messagesQueue.add(reply);
+			    			break;
 		    		}
 		    	}
 		    }
+			
+			messagesQueue.endRetrieval();
+			
 		}
 
 		@Override
@@ -614,7 +649,7 @@ public class CoordinatorAgent extends Agent {
 		}
 		
 		public int onEnd(){
-	    	showMessage("STATE_1 return 0");
+	    	showMessage("STATE_4 return 0");
 	    	return 0;
 	    }
 	}
