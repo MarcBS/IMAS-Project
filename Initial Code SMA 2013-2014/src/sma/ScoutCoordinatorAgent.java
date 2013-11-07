@@ -1,12 +1,8 @@
 package sma;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
+import java.util.Random;
 
 import sma.ontology.AuxInfo;
-import sma.ontology.Cell;
-import sma.ontology.InfoAgent;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.OneShotBehaviour;
@@ -27,9 +23,6 @@ public class ScoutCoordinatorAgent extends Agent{
 	
 	// array storing the not handled messages
 	private MessagesList messagesQueue = new MessagesList(this);
-	
-	// List of Scout AID
-	private ArrayList<AID> listScouts = new ArrayList<AID>();
 
 	public ScoutCoordinatorAgent(){}
 	
@@ -87,8 +80,8 @@ public class ScoutCoordinatorAgent extends Agent{
 	    // Add behavior to request game info
 	    this.addBehaviour(new RequestGameInfo(this, coordinatorAgent));
 	    
-	    // Add behavior to send game info to scout agents
-	    //this.addBehaviour(new SendGameInfo(this));
+	    // Add behavior to send game info and first random movement to scout agents 
+	    this.addBehaviour(new InitialSendToScout(this));
 	}
 	
 	/**
@@ -101,7 +94,6 @@ public class ScoutCoordinatorAgent extends Agent{
 	protected class RequestGameInfo extends OneShotBehaviour 
 	{
 		private AID receptor;
-		private boolean parsedAID = false;
 		
 		public RequestGameInfo (Agent a, AID r)
 		{
@@ -146,11 +138,6 @@ public class ScoutCoordinatorAgent extends Agent{
 								info = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
 								okInfo = true;
 								showMessage("Recieved game info from "+reply.getSender());
-								if (!parsedAID)
-								{
-									parseAID();
-									parsedAID = true;
-								}
 							} catch (UnreadableException e) {
 								messagesQueue.add(reply);
 								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
@@ -168,54 +155,34 @@ public class ScoutCoordinatorAgent extends Agent{
 		    }
 		    messagesQueue.endRetrieval();
 		}
-		
-		/*
-		 * Gets AID from Scouts Agents and store them in listScouts
-		 */
-		private void parseAID()
-		{
-			Collection<Cell> cells = info.getAgentsInitialPosition().values();
-			Iterator<Cell> it = cells.iterator();
-			
-			while(it.hasNext()) 
-			{
-				Cell cell = it.next();
-				if (cell.isThereAnAgent())
-				{
-					InfoAgent agent = cell.getAgent();
-					if (agent.getAgentType() == InfoAgent.SCOUT)
-					{
-						listScouts.add(agent.getAID());
-						showMessage("PARSED!!!!!!!! "+agent.getAID());
-					}			
-				}
-			}
-		}	
 	}
 	
 	/**
 	 * 
 	 * @author Albert
 	 * 
-	 * Class that implements behavior for sending game info (map) to all scout agents
+	 * Class that implements behavior for sending game info (map) to all scout agents and a random movement
 	 * NOT TESTED YET!!!
 	 */
-	protected class SendGameInfo extends OneShotBehaviour 
+	protected class InitialSendToScout extends OneShotBehaviour 
 	{
 
-		public SendGameInfo (Agent a)
+		public InitialSendToScout (Agent a)
 		{
 			super(a);
 		}
 		
 		@Override
 		public void action() {
-			/* Make a broadcast to all scouts agent sending the game info */
-			for (int i=0; i<listScouts.size(); i++)
+			Random rnd = new Random();
+			
+			/* Make a broadcast to all scouts agent sending the game info and movement*/
+			for (int i=0; i<info.getScout_aids().size(); i++)
 			{	
+				/* Sending game info */
 				ACLMessage request = new ACLMessage(ACLMessage.INFORM);
 				request.clearAllReceiver();
-			    request.addReceiver(listScouts.get(i));
+			    request.addReceiver(info.getScout_aids().get(i));
 			    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
 			    try 
 			    {
@@ -225,7 +192,20 @@ public class ScoutCoordinatorAgent extends Agent{
 				    	e.printStackTrace();
 				    	}
 			    send(request);
-			    showMessage("Sending game info to "+listScouts.get(i));
+			    showMessage("Sending game info to "+info.getScout_aids().get(i));
+			    
+			    /* Sending random movement*/
+			    int mapSize = info.getMap().length;
+			    Movement m = new Movement(null, rnd.nextInt(mapSize), rnd.nextInt(mapSize), UtilsAgents.SCOUT_AGENT);	// Random movement
+			    try 
+			    {
+			    	request.setContentObject(m);
+			    } catch (Exception e) {
+				    	request.setPerformative(ACLMessage.FAILURE);
+				    	e.printStackTrace();
+				    	}
+			    send(request);
+			    showMessage("Sending movement to "+info.getScout_aids().get(i));
 			}
 		}	
 	}
