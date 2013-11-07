@@ -8,6 +8,7 @@ import java.util.ArrayList;
 
 
 
+
 // import jade.util.leap.ArrayList;
 import jade.util.leap.List;
 import jade.core.*;
@@ -72,26 +73,45 @@ public class CentralAgent extends Agent {
       AgentContainer container = this.getContainerController();
       Object [] parameters = null;
       String agentName = "";
+      AID aid = null;
       
+      ServiceDescription searchCriterion = new ServiceDescription();
+      searchCriterion.setType(UtilsAgents.SCOUT_AGENT);
       for(int k=0; k<currentGame.getInfo().getNumScouts(); k++) {
     	  x = 9+k;
-    	  InfoAgent b = new InfoAgent(InfoAgent.SCOUT);
     	  agentName = this.scoutName+String.valueOf(k);
-    	  
+    	  //Create the scout agent
           utils.createAgent(container, agentName, "sma.ScoutAgent",parameters);
-        ((currentGame.getInfo().getMap())[x][y]).addAgent(b);
-        agents.add(currentGame.getInfo().getCell(x,y));
+          //Search AID of the scout agent
+          searchCriterion.setName(agentName);
+  	      aid = UtilsAgents.searchAgent(this, searchCriterion);
+  	      //Create the InfoAgent
+    	  InfoAgent b = new InfoAgent(InfoAgent.SCOUT, aid);
+  	      //Add agent in the map
+    	  ((currentGame.getInfo().getMap())[x][y]).addAgent(b);
+    	  agents.add(currentGame.getInfo().getCell(x,y));
+  	      //Add the s aid into the harvester aid list
+  	      this.game.getInfo().addScout_aid(aid);
       }
 
       y = 0;
+	  searchCriterion = new ServiceDescription();
+      searchCriterion.setType(UtilsAgents.HARVESTER_AGENT);
       for(int k=0; k<currentGame.getInfo().getNumHarvesters(); k++) {
     	  x = k+2;
-    	  InfoAgent p = new InfoAgent(InfoAgent.HARVESTER);
     	  agentName = this.harvesterName+String.valueOf(k);
-    	  
+    	  //Create the scout agent
     	  utils.createAgent(container, agentName, "sma.HarvesterAgent",parameters);
+          //Search AID of the scout agent
+          searchCriterion.setName(agentName);
+  	      aid = UtilsAgents.searchAgent(this, searchCriterion);
+  	      //Create the InfoAgent
+    	  InfoAgent p = new InfoAgent(InfoAgent.HARVESTER, aid);
+  	      //Add agent in the map
     	  ((currentGame.getInfo().getMap())[x][y]).addAgent(p);
     	  agents.add( currentGame.getInfo().getCell(x,y));
+  	      //Add the harvester aid into the harvester aid list
+  	      this.game.getInfo().addHarvester_aid(aid);
       }
       return agents;
     }
@@ -158,6 +178,9 @@ public class CentralAgent extends Agent {
    //If any scout is near a building with garbage, we show it in the public map
    //checkScoutsDiscoveries();
         
+   HashMap<InfoAgent,Cell> lista = game.getInfo().getAgentsInitialPosition();
+   Cell c = lista.get(1);
+   
    // search CoordinatorAgent
    ServiceDescription searchCriterion = new ServiceDescription();
    searchCriterion.setType(UtilsAgents.COORDINATOR_AGENT);
@@ -238,7 +261,7 @@ public class CentralAgent extends Agent {
    * <p><b>Copyright:</b> Copyright (c) 2009</p>
    * <p><b>Company:</b> Universitat Rovira i Virgili (<a
    * href="http://www.urv.cat">URV</a>)</p>
-   * @author David Isern and Joan Albert L���pez
+   * @author David Isern and Joan Albert L���������pez
    * @see sma.ontology.Cell
    * @see sma.ontology.InfoGame
    */
@@ -323,7 +346,7 @@ public class CentralAgent extends Agent {
    * Performs the main loop of the application checking the moves of the agents and
    * updating the GUI until we reach the number of turns for this game.
    * 
-   * @author Marc Bola���os
+   * @author Marc Bola���������os
    *
    */
   private class MainLoopBehaviour extends TickerBehaviour {

@@ -19,7 +19,7 @@ public class ScoutAgent extends Agent {
 		 super();
 	}
 	/**
-	   * A message is shown in the log area of the GUI
+	   * A message is shown in the log area of the GUI 
 	   * @param str String to show
 	   */
 	private void showMessage(String str) {
@@ -81,10 +81,6 @@ public class ScoutAgent extends Agent {
 		}
 	   // game.getInfo().getCell(x, y)
 	    Cell[][] map = game.getInfo().getMap();
-	    int x = map.length;
-	    
-	    
-	    	
+	    int x = map.length;	    
 	}
-
 }
