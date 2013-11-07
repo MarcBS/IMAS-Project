@@ -43,8 +43,8 @@ public class AuxInfo implements java.io.Serializable {
 	private String[] typeHarvesters;
 	private int[] capacityHarvesters;
 
-	private HashMap<InfoAgent, Cell> agentsInitialPosition = new HashMap<InfoAgent, Cell>(); 
 	// For each InfoAgent it contains its initial cell
+	private HashMap<InfoAgent, Cell> agentsInitialPosition = new HashMap<InfoAgent, Cell>(); 
 	
 	//AID of the harversters
 	private List<AID> harvesters_aids = new ArrayList<AID>();

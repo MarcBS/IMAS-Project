@@ -82,8 +82,9 @@ public class CentralAgent extends Agent {
     	  agentName = this.scoutName+String.valueOf(k);
     	  //Create the scout agent
           utils.createAgent(container, agentName, "sma.ScoutAgent",parameters);
-          //Search AID of the scout agent
+          //Add other criteria to search aid agent
           searchCriterion.setName(agentName);
+          //Search AID of the scout agent
   	      aid = UtilsAgents.searchAgent(this, searchCriterion);
   	      //Create the InfoAgent
     	  InfoAgent b = new InfoAgent(InfoAgent.SCOUT, aid);
@@ -102,8 +103,9 @@ public class CentralAgent extends Agent {
     	  agentName = this.harvesterName+String.valueOf(k);
     	  //Create the scout agent
     	  utils.createAgent(container, agentName, "sma.HarvesterAgent",parameters);
-          //Search AID of the scout agent
+          //Add other criteria to search aid agent
           searchCriterion.setName(agentName);
+          //Search AID of the scout agent
   	      aid = UtilsAgents.searchAgent(this, searchCriterion);
   	      //Create the InfoAgent
     	  InfoAgent p = new InfoAgent(InfoAgent.HARVESTER, aid);
