@@ -62,10 +62,11 @@ public class CentralAgent extends Agent {
 	}
 
 	private java.util.List<Cell> placeAgents(InfoGame currentGame) throws Exception {
-	  //Temporal version. Agents must be randomly placed
+	  Cell c = null;
 	  int x=0, y=0;
+	  int numScouts=0, maxScouts = currentGame.getInfo().getNumScouts();
+	  int numHarvesters=0, maxHarvesters = currentGame.getInfo().getNumHarvesters();
       java.util.List<Cell> agents = new java.util.ArrayList<Cell>();
-      y = 9;
       
       //Create the object to create the agents and get the main controller
       UtilsAgents utils = new UtilsAgents();
@@ -76,43 +77,53 @@ public class CentralAgent extends Agent {
       
       ServiceDescription searchCriterion = new ServiceDescription();
       searchCriterion.setType(UtilsAgents.SCOUT_AGENT);
-      for(int k=0; k<currentGame.getInfo().getNumScouts(); k++) {
-    	  x = 9+k;
-    	  agentName = this.scoutName+String.valueOf(k);
-    	  //Create the scout agent
-          utils.createAgent(container, agentName, "sma.ScoutAgent",parameters);
-          //Add other criteria to search aid agent
-          searchCriterion.setName(agentName);
-          //Search AID of the scout agent
-  	      aid = UtilsAgents.searchAgent(this, searchCriterion);
-  	      //Create the InfoAgent
-    	  InfoAgent b = new InfoAgent(InfoAgent.SCOUT, aid);
-  	      //Add agent in the map
-    	  ((currentGame.getInfo().getMap())[x][y]).addAgent(b);
-    	  agents.add(currentGame.getInfo().getCell(x,y));
-  	      //Add the s aid into the harvester aid list
-  	      this.game.getInfo().addScout_aid(aid);
+      
+      while(numScouts<maxScouts){
+    	  x = game.getInfo().getRandomPosition(20);
+    	  y = game.getInfo().getRandomPosition(20);
+    	  c = currentGame.getInfo().getCell(x,y);
+    	  if(c.getCellType()==c.STREET){
+    		  agentName = this.scoutName+String.valueOf(numScouts);
+        	  //Create the scout agent
+              utils.createAgent(container, agentName, "sma.ScoutAgent",parameters);
+              //Add other criteria to search aid agent
+              searchCriterion.setName(agentName);
+              //Search AID of the scout agent
+      	      aid = UtilsAgents.searchAgent(this, searchCriterion);
+      	      //Create the InfoAgent
+        	  InfoAgent b = new InfoAgent(InfoAgent.SCOUT, aid);
+      	      //Add agent in the map
+        	  ((currentGame.getInfo().getMap())[x][y]).addAgent(b);
+        	  agents.add(currentGame.getInfo().getCell(x,y));
+      	      //Add the s aid into the harvester aid list
+      	      this.game.getInfo().addScout_aid(aid);
+    		  numScouts++;
+    	  }
       }
-
-      y = 0;
+      
 	  searchCriterion = new ServiceDescription();
       searchCriterion.setType(UtilsAgents.HARVESTER_AGENT);
-      for(int k=0; k<currentGame.getInfo().getNumHarvesters(); k++) {
-    	  x = k+2;
-    	  agentName = this.harvesterName+String.valueOf(k);
-    	  //Create the scout agent
-    	  utils.createAgent(container, agentName, "sma.HarvesterAgent",parameters);
-          //Add other criteria to search aid agent
-          searchCriterion.setName(agentName);
-          //Search AID of the scout agent
-  	      aid = UtilsAgents.searchAgent(this, searchCriterion);
-  	      //Create the InfoAgent
-    	  InfoAgent p = new InfoAgent(InfoAgent.HARVESTER, aid);
-  	      //Add agent in the map
-    	  ((currentGame.getInfo().getMap())[x][y]).addAgent(p);
-    	  agents.add( currentGame.getInfo().getCell(x,y));
-  	      //Add the harvester aid into the harvester aid list
-  	      this.game.getInfo().addHarvester_aid(aid);
+      while(numHarvesters<maxHarvesters){
+    	  x = game.getInfo().getRandomPosition(20);
+    	  y = game.getInfo().getRandomPosition(20);
+    	  c = currentGame.getInfo().getCell(x,y);
+    	  if(c.getCellType()==c.STREET && !c.isThereAnAgent()){
+    		  agentName = this.harvesterName+String.valueOf(numHarvesters);
+        	  //Create the scout agent
+        	  utils.createAgent(container, agentName, "sma.HarvesterAgent",parameters);
+              //Add other criteria to search aid agent
+              searchCriterion.setName(agentName);
+              //Search AID of the scout agent
+      	      aid = UtilsAgents.searchAgent(this, searchCriterion);
+      	      //Create the InfoAgent
+        	  InfoAgent p = new InfoAgent(InfoAgent.HARVESTER, aid);
+      	      //Add agent in the map
+        	  ((currentGame.getInfo().getMap())[x][y]).addAgent(p);
+        	  agents.add( currentGame.getInfo().getCell(x,y));
+      	      //Add the harvester aid into the harvester aid list
+      	      this.game.getInfo().addHarvester_aid(aid);
+      	      numHarvesters++;
+    	  }
       }
       return agents;
     }

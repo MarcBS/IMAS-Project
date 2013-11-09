@@ -12,7 +12,7 @@ import java.util.*;
  * <p><b>Copyright:</b> Copyright (c) 2013</p>
  * <p><b>Company:</b> Universitat Rovira i Virgili (<a
  * href="http://www.urv.cat">URV</a>)</p>
- * @author David Isern & Joan Albert L�pez
+ * @author David Isern & Joan Albert L���pez
  * @see sma.CoordinatorAgent
  * @see sma.CentralAgent
  */
@@ -103,8 +103,10 @@ public class InfoGame implements java.io.Serializable {
 	this.setTimeout(Long.parseLong(st.nextToken()));
 	dades = dis.readLine(); st = new StringTokenizer(dades, " ");
 	NROWS = Integer.parseInt(st.nextToken());
+	info.setMapRows(NROWS); //Save into AuxInfo the number of the rows in the map
 	dades = dis.readLine(); st = new StringTokenizer(dades, " ");
 	NCOLS = Integer.parseInt(st.nextToken());
+	info.setMapColumns(NROWS); //Save into AuxInfo the number of the columns in the map
 	this.info.map = new Cell[NROWS][NCOLS];
 	dades = dis.readLine(); st = new StringTokenizer(dades, " ");
 	this.info.setNumScouts(Integer.parseInt(st.nextToken()));

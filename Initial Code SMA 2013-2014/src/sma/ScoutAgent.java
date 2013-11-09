@@ -1,20 +1,40 @@
 package sma;
 
+import java.io.IOException;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+
 import jade.core.AID;
 import jade.core.Agent;
+import jade.core.behaviours.FSMBehaviour;
+import jade.core.behaviours.OneShotBehaviour;
+import jade.core.behaviours.SimpleBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPANames.InteractionProtocol;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.UnreadableException;
+import sma.ScoutCoordinatorAgent.InitialSendToScout;
+import sma.ScoutCoordinatorAgent.RequestGameInfo;
+import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
+import sma.ontology.InfoAgent;
 import sma.ontology.InfoGame;
 
 public class ScoutAgent extends Agent {
 
 	private AID scoutCoordinatorAgent;
-	
+	// array storing the not handled messages
+	private MessagesList messagesQueue = new MessagesList(this);
+	private AuxInfo auxInfo;
+	private Cell objectivePosition;
+		
 	public ScoutAgent(){
 		 super();
 	}
@@ -28,7 +48,6 @@ public class ScoutAgent extends Agent {
 	
 	protected void setup(){
 		
-		System.out.println("Setup scout");
 		/**** Very Important Line (VIL) *********/
 	    this.setEnabledO2ACommunication(true, 1);
 	    /****************************************/
@@ -51,7 +70,7 @@ public class ScoutAgent extends Agent {
 	      doDelete();
 	    }
 	    
-	    move();
+//	    move();
 	    
 	    // search ScoutsCoordinatorAgent
 	    ServiceDescription searchCriterion = new ServiceDescription();
@@ -68,19 +87,246 @@ public class ScoutAgent extends Agent {
 	    } catch (Exception e) {
 	      e.printStackTrace();
 	    }
+	    
+	    
+	    // Finite State Machine
+	    FSMBehaviour fsm = new FSMBehaviour(this) {
+			private static final long serialVersionUID = 1L;
+			public int onEnd() {
+				System.out.println("FSM behaviour completed.");
+				myAgent.doDelete();
+				return super.onEnd();
+			}
+	    };
+	    fsm.registerFirstState(new InitialRecieve(this, scoutCoordinatorAgent), "STATE_1");
+	    fsm.registerState(new RecieveGameInfo(this,scoutCoordinatorAgent), "STATE_2");
+	    fsm.registerDefaultTransition("STATE_1", "STATE_2");
+	    fsm.registerDefaultTransition("STATE_2", "STATE_2");
+	    addBehaviour(fsm);
+	}	 
+	
+	/**
+	 * 
+	 * @author David Sanchez Pinsach 
+	 * Class that implements behavior for requesting game info (map)
+	 */
+	protected class InitialRecieve extends SimpleBehaviour
+	{
+		private AID receptor;
+		private Agent a;
+		
+		public InitialRecieve (Agent a, AID r)
+		{
+			super(a);
+			this.receptor = r;
+		}
+
+		@Override
+		public void action() {
+			// Make the request
+			ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+			request.clearAllReceiver();
+		    request.addReceiver(receptor);
+		    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+		    showMessage("Connection STATE_1 between scout->scout coordinator: OK");
+		   
+		    
+		   /*Reception of game info
+		   * 
+		   * The protocol is in two steps: 
+		   * 	1. Sender sent an AGREE/FAILURE message
+		   * 	2. Sender sent INFORM  message containing the AuxInfo object
+		   */
+		    boolean okInfo = false;
+		    while(!okInfo)
+		    {
+		    	ACLMessage reply = messagesQueue.getMessage();
+		    	if (reply != null)
+		    	{
+		    		switch (reply.getPerformative())
+		    		{
+			    		case ACLMessage.AGREE:
+			    			showMessage("Recieved AGREE from "+reply.getSender());
+			    			break;
+			    		case ACLMessage.INFORM:
+							try {
+								auxInfo = (AuxInfo) reply.getContentObject(); // Getting object with the information about the game
+							    showMessage("Receiving game info from "+receptor);
+							} catch (UnreadableException e) {
+								messagesQueue.add(reply);
+								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
+							} catch (ClassCastException e){
+								try {
+									objectivePosition = (Cell) reply.getContentObject();
+									showMessage("Receiving objective position from "+receptor);
+									// Send the cell
+						        	ACLMessage reply2 = reply.createReply();
+						  	      	reply2.setPerformative(ACLMessage.INFORM);
+						  	      	try {
+						  	      		reply2.setContentObject(objectivePosition); //Return the cell to scout coordinator
+						  	      	} catch (Exception e1) {
+						  	      		reply2.setPerformative(ACLMessage.FAILURE);
+						  	      		System.err.println(e.toString());
+						  	      	}
+						  	      	send(reply2);
+									showMessage("Sending the cell position to "+receptor);
+									okInfo = true;
+		
+								} catch (UnreadableException e1) {
+									messagesQueue.add(reply);
+									System.err.println(getLocalName() + " Recieved objective postionunsucceeded. Reason: " + e.getMessage());
+								} //Getting the objective position	
+							}
+							break;
+			    		case ACLMessage.FAILURE:
+			    			System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: Performative was FAILURE");
+			    			break;
+			    		default:
+			    			// Unexpected messages received must be added to the queue.
+			    			messagesQueue.add(reply);
+			    			break;
+		    		}
+		    	}
+		    }
+		    messagesQueue.endRetrieval();
+		}
+
+		@Override
+		public boolean done() {
+			return true;
+		}
+		
+		public int onEnd(){
+	    	showMessage("STATE_1 return OK");
+	    	return 0;
+	    }
 	}
 	
-	private void move(){
-		sma.ontology.InfoGame game;
-		game = new InfoGame(); //object with the game data
-	    try {
-			game.readGameFile("game.txt");
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+	/**
+	 * 
+	 * @author David Sanchez Pinsach 
+	 * Class that implements behavior for requesting game info (map)
+	 */
+	protected class RecieveGameInfo extends SimpleBehaviour
+	{
+		private AID receptor;
+		private Agent a;
+		
+		public RecieveGameInfo (Agent a, AID r)
+		{
+			super(a);
+			this.receptor = r;
 		}
-	   // game.getInfo().getCell(x, y)
-	    Cell[][] map = game.getInfo().getMap();
-	    int x = map.length;	    
+
+		@Override
+		public void action() {
+			// Make the request
+			ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+			request.clearAllReceiver();
+		    request.addReceiver(receptor);
+		    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+		    showMessage("Connection STATE_2 between scout->scout coordinator: OK");
+		   
+		    
+		   /*Reception of game info
+		   * 
+		   * The protocol is in two steps: 
+		   * 	1. Sender sent an AGREE/FAILURE message
+		   * 	2. Sender sent INFORM  message containing the AuxInfo object
+		   */
+		    boolean okInfo = false;
+		    while(!okInfo)
+		    {
+		    	ACLMessage reply = messagesQueue.getMessage();
+		    	if (reply != null)
+		    	{
+		    		switch (reply.getPerformative())
+		    		{
+			    		case ACLMessage.AGREE:
+			    			showMessage("Recieved AGREE from "+reply.getSender());
+			    			break;
+			    		case ACLMessage.INFORM:
+							try {
+								auxInfo = (AuxInfo) reply.getContentObject(); // Getting object with the information about the game
+							    showMessage("Receiving game info from "+receptor);
+							    AID agent_aid = this.myAgent.getAID();
+								Cell c = auxInfo.getAgentCell(agent_aid);
+								// Send the cell
+					        	ACLMessage reply2 = reply.createReply();
+					  	      	reply2.setPerformative(ACLMessage.INFORM);
+					  	      	try {
+					  	      		c = getRandomPosition(auxInfo.getMap(), c);
+					  	      		reply2.setContentObject(c); //Return a new cell to scout coordinator
+					  	      	} catch (Exception e1) {
+					  	      		reply2.setPerformative(ACLMessage.FAILURE);
+					  	      		System.err.println(e1.toString());
+					  	      	}
+					  	      	send(reply2);
+								showMessage("Sending the cell position to "+receptor);
+								okInfo = true;
+							} catch (UnreadableException e) {
+								messagesQueue.add(reply);
+								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
+							} catch(ClassCastException e){
+								messagesQueue.add(reply);
+								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
+							}
+							break;
+			    		case ACLMessage.FAILURE:
+			    			System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: Performative was FAILURE");
+			    			break;
+			    		default:
+			    			// Unexpected messages received must be added to the queue.
+			    			messagesQueue.add(reply);
+			    			break;
+		    		}
+		    	}
+		    }
+		    messagesQueue.endRetrieval();
+		}
+
+		@Override
+		public boolean done() {
+			return true;
+		}
+		
+		public int onEnd(){
+	    	showMessage("STATE_2 return OK");
+	    	return 0;
+	    }
+	}
+	
+	
+	/**
+	 * Method to send a movement (A cell)
+	 * @param reply Recieve message
+	 * @param c Cell to send
+	 * @throws IOException Error of sending message
+	 */
+	public Cell getRandomPosition(Cell[][] map, Cell actualPosition) throws IOException{
+		Cell newPosition = null;
+		showMessage("Checking New Movementss...");
+		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = auxInfo.getMapRows();
+		maxColumns = auxInfo.getMapColumns();
+		newPosition = actualPosition;
+		int [][] posibleMovements = {{x+1,y},{x,y+1},{x+1,y-1},{x-1,y+1},{x-1,y},{x,y-1},{x-1,y-1},{x-1,y}};
+		List<int[]> intList = Arrays.asList(posibleMovements);
+		int [] list = null;
+		//Search a cell street
+		while(Cell.STREET != newPosition.getCellType() && !newPosition.isThereAnAgent() && list.length!=0){
+			z= auxInfo.getRandomPosition(8);
+			list = intList.remove(z);
+			xi = list[0];
+			yi = list[1];
+			if(xi < maxRows && yi < maxColumns){ //Check the limits of the map
+				newPosition = map[xi][yi];
+			}else{
+				newPosition = actualPosition; //If you can move you return your same position
+			}
+		}
+		
+		return newPosition;
 	}
 }

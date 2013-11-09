@@ -7,6 +7,8 @@ import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.StringTokenizer;
 
@@ -38,15 +40,24 @@ import java.util.concurrent.ArrayBlockingQueue;
  */
 public class AuxInfo implements java.io.Serializable {
 
+	//Properties about the map
 	protected Cell[][] map;
-
+	private int mapRows;
+	private int mapColumns;
+	
 	private int numScouts;
 	private int numHarvesters;
 	private String[] typeHarvesters;
 	private int[] capacityHarvesters;
+	private int seed = 120;
+	private Random generator;
+	
+	public AuxInfo(){
+		generator = new Random(seed);
+	}
 
 	// For each InfoAgent it contains its initial cell
-	private HashMap<InfoAgent, Cell> agentsInitialPosition = new HashMap<InfoAgent, Cell>(); 
+	private HashMap<InfoAgent, Cell> agentsPosition = new HashMap<InfoAgent, Cell>(); 
 	
 	//AID of the harversters
 	private List<AID> harvesters_aids = new ArrayList<AID>();
@@ -110,16 +121,16 @@ public class AuxInfo implements java.io.Serializable {
 
 	public void fillAgentsInitialPositions(List<Cell> agents) {
 		for (Cell c : agents)
-			agentsInitialPosition.put(c.getAgent(), c);
+			agentsPosition.put(c.getAgent(), c);
 	}
 
 	public HashMap<InfoAgent, Cell> getAgentsInitialPosition() {
-		return agentsInitialPosition;
+		return agentsPosition;
 	}
 
 	public void setAgentsInitialPosition(
 			HashMap<InfoAgent, Cell> agentsInitialPosition) {
-		this.agentsInitialPosition = agentsInitialPosition;
+		this.agentsPosition = agentsInitialPosition;
 	}
 
 	public List<Cell> getRecyclingCenters() {
@@ -167,11 +178,56 @@ public class AuxInfo implements java.io.Serializable {
 	}
 	
 	public void addBuilding(Cell cell) {
-		buildings.add(cell);
-		
+		buildings.add(cell);	
 	}
 	
 	public List<Cell> getAllBuildings(){
 		return buildings;
 	}
+	
+	/**
+	 * Give the cell of the agent
+	 * @param aid AID of the agent
+	 * @return Return the cell of the agent
+	 */
+	public Cell getAgentCell(AID aid){
+		Collection<Cell> cells = agentsPosition.values(); //Get all the cell of the all agents
+		Iterator<Cell> it = cells.iterator();
+		boolean trobat = false;
+		Cell cell = null;
+		while(it.hasNext() && !trobat) {
+		    cell = it.next();
+			InfoAgent agent = cell.getAgent();
+			if (agent.getAID() == aid){
+				trobat = true;
+			}			
+		}
+		return cell;
+	}
+	
+	/**
+	 * Method to get a random seed number to select position in the map
+	 * @return Return a position
+	 */
+	public int getRandomPosition(int size){
+	    int num = generator.nextInt(size);
+	    return num;
+	}
+
+	public int getMapRows() {
+		return mapRows;
+	}
+
+	public void setMapRows(int mapRows) {
+		this.mapRows = mapRows;
+	}
+
+	public int getMapColumns() {
+		return mapColumns;
+	}
+
+	public void setMapColumns(int mapColumns) {
+		this.mapColumns = mapColumns;
+	}
+	
 }
