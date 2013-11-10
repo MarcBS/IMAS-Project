@@ -245,48 +245,56 @@ public class CentralAgent extends Agent {
 	 * 
 	 * @param moves Object containing 
 	 */
-	private boolean processMovements(Object moves){
+	private boolean processMovements(Object cells){
 		showMessage("Checking MOVEMENTS");
-		ArrayList<Movement> mo_list = (ArrayList)moves;
-		for(Movement m : mo_list){
-			String agent_id = m.getAgentId();
-			int[] pos = m.getPosition();
-			// find the current Cell of the agent
-			Cell[][] map = game.getInfo().getMap();
-			//(int i = 0; i < map.length; i++){
-			int i = 0; int j = 0;boolean found = false;
-			while( i < map.length && !found){
-				j = 0;
-				while(j < map[i].length && !found){
-					if(map[i][j].getAgent().getAID().getName().equals(agent_id)){
-						found = true;
-					}
-					j++;
-				}
-				i++;
-			}
-			// get the InfoAgent of this Cell
-			InfoAgent old = map[i][j].getAgent();
-
+		
+		ArrayList<Cell> mo_list = (ArrayList)cells;
+		
+		
+		for(Cell c : mo_list){
 			try {
-				// set the InfoAgent to null
-				map[i][j].removeAgent(old);
-				// set the InfoAgent of the new Cell
-				i = 0; j = 0; found = false;
+				String agent_id = c.getAgent().getAgent();
+				int pos_col = c.getColumn();
+				int pos_row = c.getRow();
+				// find the current Cell of the agent
+				Cell[][] map = game.getInfo().getMap();
+				//(int i = 0; i < map.length; i++){
+				int i = 0; int j = 0;boolean found = false;
 				while( i < map.length && !found){
 					j = 0;
 					while(j < map[i].length && !found){
-						if(map[i][j].getRow()==pos[0] && map[i][j].getColumn()==pos[1]){
+						if(map[i][j].getAgent().getAID().getName().equals(agent_id)){
 							found = true;
 						}
 						j++;
 					}
 					i++;
 				}
-				map[i][j].addAgent(old);
-
-			} catch (Exception e) {
-
+				// get the InfoAgent of this Cell
+				InfoAgent old = map[i][j].getAgent();
+	
+				try {
+					// set the InfoAgent to null
+					map[i][j].removeAgent(old);
+					// set the InfoAgent of the new Cell
+					i = 0; j = 0; found = false;
+					while( i < map.length && !found){
+						j = 0;
+						while(j < map[i].length && !found){
+							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
+								found = true;
+							}
+							j++;
+						}
+						i++;
+					}
+					map[i][j].addAgent(old);
+	
+				} catch (Exception e) {
+	
+				}
+			} catch (Exception e1) {
+				
 			}
 
 
@@ -309,7 +317,7 @@ public class CentralAgent extends Agent {
 	 * <p><b>Copyright:</b> Copyright (c) 2009</p>
 	 * <p><b>Company:</b> Universitat Rovira i Virgili (<a
 	 * href="http://www.urv.cat">URV</a>)</p>
-	 * @author David Isern and Joan Albert L���������pez
+	 * @author David Isern and Joan Albert L���������������������������pez
 	 * @see sma.ontology.Cell
 	 * @see sma.ontology.InfoGame
 	 */
@@ -396,7 +404,7 @@ public class CentralAgent extends Agent {
 	 * Performs the main loop of the application checking the moves of the agents and
 	 * updating the GUI until we reach the number of turns for this game.
 	 * 
-	 * @author Marc Bola���������os
+	 * @author Marc Bola���������������������������os
 	 *
 	 */
 	private class MainLoopBehaviour extends TickerBehaviour {
