@@ -20,6 +20,8 @@ import java.util.ArrayList;
  * end communication
  * list.endRetrieval()
  * 
+ * Synchronization not guaranteed!
+ * 
  * @author Marc Bolaños
  *
  */

@@ -5,6 +5,8 @@ import java.io.Serializable;
 /**
  * Defines a movement on the map made by an agent.
  * 
+ * Deprecated class, use Cell insted.
+ * 
  * @author Marc Bolaños
  *
  */
