@@ -34,7 +34,7 @@ import java.util.concurrent.ArrayBlockingQueue;
  * href="http://www.urv.cat">URV</a>)
  * </p>
  * 
- * @author David Isern & Joan Albert L�pez
+ * @author David Isern & Joan Albert L���pez
  * @see sma.CoordinatorAgent
  * @see sma.CentralAgent
  */
@@ -131,6 +131,10 @@ public class AuxInfo implements java.io.Serializable {
 	public void setAgentsInitialPosition(
 			HashMap<InfoAgent, Cell> agentsInitialPosition) {
 		this.agentsPosition = agentsInitialPosition;
+	}
+	
+	public void setAgentCell(InfoAgent a, Cell new_cell){
+		agentsPosition.put(a, new_cell);
 	}
 
 	public List<Cell> getRecyclingCenters() {
@@ -250,5 +254,7 @@ public class AuxInfo implements java.io.Serializable {
 	public void setMapColumns(int mapColumns) {
 		this.mapColumns = mapColumns;
 	}
+	
+	
 	
 }

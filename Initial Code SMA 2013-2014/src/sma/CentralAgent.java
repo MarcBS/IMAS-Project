@@ -289,6 +289,7 @@ public class CentralAgent extends Agent {
 						i++;
 					}
 					map[i][j].addAgent(old);
+					game.getInfo().setAgentCell(old, map[i][j]);
 	
 				} catch (Exception e) {
 	
@@ -338,13 +339,16 @@ public class CentralAgent extends Agent {
 			 * is an AGREE the behaviour will continue with the method prepareResultNotification. */
 			
 			showMessage("Message received from" + msg.getSender().getName());
+			showMessage(Integer.toString(turnLastMap));
+			showMessage(Integer.toString(game.getTurn()));
 			ACLMessage reply = msg.createReply();
 			try {
+				
 				Object contentRebut = (Object)msg.getContent();
 				if(contentRebut.equals("Initial request")) {
 					showMessage("Initial request received");
 					reply.setPerformative(ACLMessage.AGREE);
-				} else if(turnLastMap < game.getTurn() && processMovements(msg.getContentObject())) {
+				} else if(/*turnLastMap < game.getTurn() && */processMovements(msg.getContentObject())) {
 					turnLastMap = game.getTurn();
 					showMessage("Movements applied.");
 					reply.setPerformative(ACLMessage.AGREE);
