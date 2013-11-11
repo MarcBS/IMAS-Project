@@ -376,20 +376,6 @@ public class CoordinatorAgent extends Agent {
 			        if(processMovements(contentRebut)) {
 			        	okMovements = true;
 			        	showMessage("New movements from " + msg.getSender().getLocalName() + " received.");
-			        	
-			        	// Send "ok movements" informative message
-			        	ACLMessage reply2 = msg.createReply();
-				  	    reply2.setPerformative(ACLMessage.INFORM);
-			
-				  	    try {
-				  	    	reply2.setContent("ok movements");
-				  	    	send(reply2);
-				  	    } catch (Exception e) {
-				  	        reply2.setPerformative(ACLMessage.FAILURE);
-				  	        System.err.println(e.toString());
-				  	        e.printStackTrace();
-				  	    }
-			        
 			        } else {
 			        	messagesQueue.add(msg);
 			        }
