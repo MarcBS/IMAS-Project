@@ -252,52 +252,68 @@ public class CentralAgent extends Agent {
 		
 		
 		for(Cell c : mo_list){
-			try {
-				String agent_id = c.getAgent().getAgent();
-				int pos_col = c.getColumn();
-				int pos_row = c.getRow();
-				// find the current Cell of the agent
-				Cell[][] map = game.getInfo().getMap();
-				//(int i = 0; i < map.length; i++){
-				int i = 0; int j = 0;boolean found = false;
+			if(!c.isThereAnAgent()){ continue;}
+		
+			String agent_id = c.getAgent().getAID().getName();
+			int pos_col = c.getColumn();
+			int pos_row = c.getRow();
+			// find the current Cell of the agent
+			Cell[][] map = game.getInfo().getMap();
+			Cell agentPos = null;
+			//(int i = 0; i < map.length; i++){
+			int i = 0; int j = 0;boolean found = false;
+			while( i < map.length && !found){
+				j = 0;
+				while(j < map[i].length && !found){
+					try{
+						if(map[i][j].getAgent().getAID().getName().equals(agent_id)){
+							found = true;
+							agentPos = map[i][j];
+						}
+					} catch(Exception e3){ }
+					j++;
+				}
+				i++;
+			}
+			if(found){
+				// get the InfoAgent of this Cell
+				InfoAgent old = agentPos.getAgent();
+	
+			
+				// set the InfoAgent to null
+				try {
+					agentPos.removeAgent(old);
+				} catch (Exception e1) {
+					
+					e1.printStackTrace();
+				}
+				// set the InfoAgent of the new Cell
+				i = 0; j = 0; found = false;
 				while( i < map.length && !found){
 					j = 0;
 					while(j < map[i].length && !found){
-						if(map[i][j].getAgent().getAID().getName().equals(agent_id)){
-							found = true;
-						}
+						try{
+							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
+								found = true;
+								agentPos = map[i][j];
+							}
+						}catch(Exception e){}
 						j++;
 					}
 					i++;
 				}
-				// get the InfoAgent of this Cell
-				InfoAgent old = map[i][j].getAgent();
-	
 				try {
-					// set the InfoAgent to null
-					map[i][j].removeAgent(old);
-					// set the InfoAgent of the new Cell
-					i = 0; j = 0; found = false;
-					while( i < map.length && !found){
-						j = 0;
-						while(j < map[i].length && !found){
-							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
-								found = true;
-							}
-							j++;
-						}
-						i++;
-					}
-					map[i][j].addAgent(old);
-					game.getInfo().setAgentCell(old, map[i][j]);
-	
+					agentPos.addAgent(old);
 				} catch (Exception e) {
-	
+					// TODO Auto-generated catch block
+					e.printStackTrace();
 				}
-			} catch (Exception e1) {
-				
-			}
+				game.getInfo().setAgentCell(old, agentPos);
 
+			
+			} else{
+				System.err.println("Agent not found");
+			}
 
 
 		}
@@ -339,8 +355,6 @@ public class CentralAgent extends Agent {
 			 * is an AGREE the behaviour will continue with the method prepareResultNotification. */
 			
 			showMessage("Message received from" + msg.getSender().getName());
-			showMessage(Integer.toString(turnLastMap));
-			showMessage(Integer.toString(game.getTurn()));
 			ACLMessage reply = msg.createReply();
 			try {
 				
