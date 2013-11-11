@@ -47,6 +47,7 @@ public class CentralAgent extends Agent {
 
 	private AID coordinatorAgent;
 	private int turnLastMap = 0;
+	
 
 	public CentralAgent() {
 		super();
@@ -201,7 +202,7 @@ public class CentralAgent extends Agent {
 		// we wait for the initialization of the game
 		MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchProtocol(InteractionProtocol.FIPA_REQUEST), MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
 
-		this.addBehaviour(new RequestResponseBehaviour(this, null));
+		this.addBehaviour(new InitialRequestResponseBehaviour(this, null));
 
 
 		// Setup finished. When the last inform is received, the agent itself will add
@@ -259,7 +260,8 @@ public class CentralAgent extends Agent {
 			int pos_row = c.getRow();
 			// find the current Cell of the agent
 			Cell[][] map = game.getInfo().getMap();
-			Cell agentPos = null;
+			Cell oldAgentPos = null;
+			Cell newAgentPos = null;
 			//(int i = 0; i < map.length; i++){
 			int i = 0; int j = 0;boolean found = false;
 			while( i < map.length && !found){
@@ -268,7 +270,7 @@ public class CentralAgent extends Agent {
 					try{
 						if(map[i][j].getAgent().getAID().getName().equals(agent_id)){
 							found = true;
-							agentPos = map[i][j];
+							oldAgentPos = map[i][j];
 						}
 					} catch(Exception e3){ }
 					j++;
@@ -277,12 +279,12 @@ public class CentralAgent extends Agent {
 			}
 			if(found){
 				// get the InfoAgent of this Cell
-				InfoAgent old = agentPos.getAgent();
+				InfoAgent old = oldAgentPos.getAgent();
 	
 			
 				// set the InfoAgent to null
 				try {
-					agentPos.removeAgent(old);
+					oldAgentPos.removeAgent(old);
 				} catch (Exception e1) {
 					
 					e1.printStackTrace();
@@ -295,20 +297,31 @@ public class CentralAgent extends Agent {
 						try{
 							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
 								found = true;
-								agentPos = map[i][j];
+								newAgentPos = map[i][j];
 							}
 						}catch(Exception e){}
 						j++;
 					}
 					i++;
 				}
-				try {
-					agentPos.addAgent(old);
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+				if(!newAgentPos.isThereAnAgent()){
+					try {
+						newAgentPos.addAgent(old);
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+					game.getInfo().setAgentCell(old, newAgentPos);
+				} else{ 
+					// collisions not implemented
+					System.err.println("There is an agent in this cell");
+					try {
+						oldAgentPos.addAgent(old);
+					} catch (Exception e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
 				}
-				game.getInfo().setAgentCell(old, agentPos);
 
 			
 			} else{
@@ -338,14 +351,14 @@ public class CentralAgent extends Agent {
 	 * @see sma.ontology.Cell
 	 * @see sma.ontology.InfoGame
 	 */
-	private class RequestResponseBehaviour extends AchieveREResponder {
+	private class InitialRequestResponseBehaviour extends AchieveREResponder {
 
 		/**
 		 * Constructor for the <code>RequestResponseBehaviour</code> class.
 		 * @param myAgent The agent owning this behaviour
 		 * @param mt Template to receive future responses in this conversation
 		 */
-		public RequestResponseBehaviour(CentralAgent myAgent, MessageTemplate mt) {
+		public InitialRequestResponseBehaviour(CentralAgent myAgent, MessageTemplate mt) {
 			super(myAgent, mt);
 			showMessage("Waiting REQUESTs from authorized agents");
 		}
@@ -414,7 +427,102 @@ public class CentralAgent extends Agent {
 	} //end of RequestResponseBehaviour
 
 
+	private class RequestResponseBehaviour extends AchieveREResponder {
 
+		/**
+		 * Constructor for the <code>RequestResponseBehaviour</code> class.
+		 * @param myAgent The agent owning this behaviour
+		 * @param mt Template to receive future responses in this conversation
+		 */
+		public RequestResponseBehaviour(CentralAgent myAgent, MessageTemplate mt) {
+			super(myAgent, mt);
+			showMessage("Waiting REQUESTs from authorized agents");
+		}
+
+		protected ACLMessage prepareResponse(ACLMessage msg) {
+			/* method called when the message has been received. If the message to send
+			 * is an AGREE the behaviour will continue with the method prepareResultNotification. */
+			
+			showMessage("Message received from" + msg.getSender().getName());
+			ACLMessage reply = msg.createReply();
+			try {
+				
+				Object contentRebut = (Object)msg.getContent();
+				if(processMovements(msg.getContentObject())) {
+					turnLastMap = game.getTurn();
+					showMessage("Movements applied.");
+					reply.setPerformative(ACLMessage.AGREE);
+				}
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+			//showMessage("Answer sent"); //: \n"+reply.toString());
+			return reply;
+		} //endof prepareResponse   
+
+		/**
+		 * This method is called after the response has been sent and only when
+		 * one of the following two cases arise: the response was an agree message
+		 * OR no response message was sent. This default implementation return null
+		 * which has the effect of sending no result notification. Programmers
+		 * should override the method in case they need to react to this event.
+		 * @param msg ACLMessage the received message
+		 * @param response ACLMessage the previously sent response message
+		 * @return ACLMessage to be sent as a result notification (i.e. one of
+		 * inform, failure).
+		 */
+		/*protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
+
+			// it is important to make the createReply in order to keep the same context of
+			// the conversation
+			ACLMessage reply = msg.createReply();
+			reply.setPerformative(ACLMessage.INFORM);
+
+			try {
+				reply.setContentObject(game.getInfo());
+			} catch (Exception e) {
+				reply.setPerformative(ACLMessage.FAILURE);
+				System.err.println(e.toString());
+				e.printStackTrace();
+			}
+			//showMessage("Answer sent"); //+reply.toString());
+			return reply;
+
+		} //endof prepareResultNotification
+*/
+
+		/**
+		 *  No need for any specific action to reset this behaviour
+		 */
+		public void reset() {
+		}
+
+	} //end of RequestResponseBehaviour
+
+
+	private class SendInfoBehaviour extends OneShotBehaviour{
+
+		@Override
+		public void action() {
+			showMessage("Sending Game Info to coord.");
+			ACLMessage info = new ACLMessage(ACLMessage.INFORM);
+			info.clearAllReceiver();
+			info.addReceiver(CentralAgent.this.coordinatorAgent);
+			info.setProtocol(InteractionProtocol.FIPA_REQUEST);
+
+		    try {
+		    	info.setContentObject(game.getInfo());
+		    	send(info);
+		    } catch (Exception e) {
+		    	e.printStackTrace();
+		    }
+		
+		    
+			
+		}
+
+		
+	}
 
 	/*************************************************************************/
 
@@ -452,8 +560,8 @@ public class CentralAgent extends Agent {
 			}
 
 			if(!game_finished){
-				// wait for the new positions 
-				this.myAgent.addBehaviour(new RequestResponseBehaviour((CentralAgent) this.myAgent, null));
+				// send game info
+				this.myAgent.addBehaviour(new SendInfoBehaviour());
 				//get a random number to decide wether to add or not garbage
 				double d = Math.random();
 				if(d <= game.getProbGarbage()){
@@ -464,7 +572,9 @@ public class CentralAgent extends Agent {
 						// do nothing
 					}
 				}
-
+				// wait for the new positions 
+				this.myAgent.addBehaviour(new RequestResponseBehaviour((CentralAgent) this.myAgent, null));
+				
 			} else {
 
 				// TODO: show final result
