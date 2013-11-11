@@ -1,6 +1,7 @@
 package sma;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -33,7 +34,7 @@ public class ScoutAgent extends Agent {
 	// array storing the not handled messages
 	private MessagesList messagesQueue = new MessagesList(this);
 	private AuxInfo auxInfo;
-	private Cell objectivePosition;
+	private Cell objectivePosition; //Cell of the objective position of the agent
 		
 	public ScoutAgent(){
 		 super();
@@ -76,18 +77,6 @@ public class ScoutAgent extends Agent {
 	    ServiceDescription searchCriterion = new ServiceDescription();
 	    searchCriterion.setType(UtilsAgents.SCOUT_COORDINATOR_AGENT);
 	    this.scoutCoordinatorAgent = UtilsAgents.searchAgent(this, searchCriterion);
-	    ACLMessage requestInicial = new ACLMessage(ACLMessage.REQUEST);
-	    requestInicial.clearAllReceiver();
-	    requestInicial.addReceiver(this.scoutCoordinatorAgent);
-	    requestInicial.setProtocol(InteractionProtocol.FIPA_REQUEST);
-	    showMessage("Message OK");
-	    try {
-	      requestInicial.setContent("Initial request");
-	      showMessage("Content OK" + requestInicial.getContent());
-	    } catch (Exception e) {
-	      e.printStackTrace();
-	    }
-	    
 	    
 	    // Finite State Machine
 	    FSMBehaviour fsm = new FSMBehaviour(this) {
@@ -163,7 +152,10 @@ public class ScoutAgent extends Agent {
 						        	ACLMessage reply2 = reply.createReply();
 						  	      	reply2.setPerformative(ACLMessage.INFORM);
 						  	      	try {
-						  	      		reply2.setContentObject(objectivePosition); //Return the cell to scout coordinator
+						  	      		AID agent_aid = this.myAgent.getAID();
+						  	      		Cell c = auxInfo.getAgentCell(agent_aid);
+						  	      		c = getRandomPosition(auxInfo.getMap(), c);
+					  	      			reply2.setContentObject(c); //Return a new cell to scout coordinator
 						  	      	} catch (Exception e1) {
 						  	      		reply2.setPerformative(ACLMessage.FAILURE);
 						  	      		System.err.println(e.toString());
@@ -177,7 +169,9 @@ public class ScoutAgent extends Agent {
 									System.err.println(getLocalName() + " Recieved objective postionunsucceeded. Reason: " + e.getMessage());
 								} //Getting the objective position	
 							}
+							
 							break;
+							
 			    		case ACLMessage.FAILURE:
 			    			System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: Performative was FAILURE");
 			    			break;
@@ -305,7 +299,8 @@ public class ScoutAgent extends Agent {
 	 */
 	public Cell getRandomPosition(Cell[][] map, Cell actualPosition) throws IOException{
 		Cell newPosition = null;
-		showMessage("Checking New Movementss...");
+		boolean trobat = false;
+		showMessage("Checking random movement...");
 		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
 		int maxRows=0, maxColumns=0;
 		maxRows = auxInfo.getMapRows();
@@ -313,20 +308,30 @@ public class ScoutAgent extends Agent {
 		newPosition = actualPosition;
 		int [][] posibleMovements = {{x+1,y},{x,y+1},{x+1,y-1},{x-1,y+1},{x-1,y},{x,y-1},{x-1,y-1},{x-1,y}};
 		List<int[]> intList = Arrays.asList(posibleMovements);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+
 		int [] list = null;
 		//Search a cell street
-		while(Cell.STREET != newPosition.getCellType() && !newPosition.isThereAnAgent() && list.length!=0){
-			z= auxInfo.getRandomPosition(8);
-			list = intList.remove(z);
+		while(arrayList.size()!=0 && !trobat){
+			z= auxInfo.getRandomPosition(intList.size());
+			list = arrayList.remove(z);
+			
 			xi = list[0];
 			yi = list[1];
-			if(xi < maxRows && yi < maxColumns){ //Check the limits of the map
-				newPosition = map[xi][yi];
+			newPosition = map[xi][yi];
+			if(xi < maxRows && yi < maxColumns && !newPosition.isThereAnAgent() && Cell.STREET == newPosition.getCellType() ){ //Check the limits of the map
+				try {
+					showMessage("Position before moving "+"x:"+x+" y:"+y);
+					newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+				} catch (Exception e) {
+					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+				}
+				trobat = true;
 			}else{
 				newPosition = actualPosition; //If you can move you return your same position
 			}
 		}
-		
+
 		return newPosition;
 	}
 }

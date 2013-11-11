@@ -198,11 +198,32 @@ public class AuxInfo implements java.io.Serializable {
 		while(it.hasNext() && !trobat) {
 		    cell = it.next();
 			InfoAgent agent = cell.getAgent();
-			if (agent.getAID() == aid){
+			if (agent.getAID().equals(aid)){
 				trobat = true;
 			}			
 		}
 		return cell;
+	}
+	
+	/**
+	 * Give the info agent of the specific aid
+	 * @param aid Aid of the agent
+	 * @return Return the Info Agent
+	 */
+	public InfoAgent getInfoAgent(AID aid){
+		InfoAgent agent = null;
+		Collection<Cell> cells = agentsPosition.values(); //Get all the cell of the all agents
+		Iterator<Cell> it = cells.iterator();
+		boolean trobat = false;
+		Cell cell = null;
+		while(it.hasNext() && !trobat) {
+		    cell = it.next();
+			agent = cell.getAgent();
+			if (agent.getAID() == aid){
+				trobat = true;
+			}			
+		}
+		return agent;
 	}
 	
 	/**
