@@ -377,11 +377,6 @@ public class CoordinatorAgent extends Agent {
 			        	okMovements = true;
 			        	showMessage("New movements from " + msg.getSender().getLocalName() + " received.");
 			        	
-			        	// Send agree message
-			        	ACLMessage reply1 = msg.createReply();
-			        	reply1.setPerformative(ACLMessage.AGREE);
-			        	send(reply1);
-			        	
 			        	// Send "ok movements" informative message
 			        	ACLMessage reply2 = msg.createReply();
 				  	    reply2.setPerformative(ACLMessage.INFORM);
