@@ -123,7 +123,7 @@ public class CoordinatorAgent extends Agent {
     // Waiting for movements from lower layer coordinators
     fsm.registerState(new ReceiveMovements(this), "STATE_3");
     // Send movements received to CentralAgent and wait for its map response
-    fsm.registerLastState(new SendMovesBehaviour(this), "STATE_4");
+    fsm.registerState(new SendMovesBehaviour(this), "STATE_4");
     
     // FSM transitions
     fsm.registerDefaultTransition("STATE_1", "STATE_2");
@@ -435,6 +435,7 @@ public class CoordinatorAgent extends Agent {
 			// Reset movements list
 			newMovements = new ArrayList<Cell>(info.getNumHarvesters()+info.getNumScouts());
 			countMovementsReceived = 0;
+			countMapRequests = 0;
 			
 			// Receiving the new AuxInfo from the CentralAgent
 			boolean auxReceived = false;
