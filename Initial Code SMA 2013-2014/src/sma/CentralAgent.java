@@ -48,7 +48,8 @@ public class CentralAgent extends Agent {
 	private AID coordinatorAgent;
 	private int turnLastMap = 0;
 	
-
+	private boolean movements_updated = false;
+	
 	public CentralAgent() {
 		super();
 	}
@@ -202,7 +203,7 @@ public class CentralAgent extends Agent {
 		// we wait for the initialization of the game
 		MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchProtocol(InteractionProtocol.FIPA_REQUEST), MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
 
-		this.addBehaviour(new InitialRequestResponseBehaviour(this, null));
+		this.addBehaviour(new InitialRequestResponseBehaviour());
 
 
 		// Setup finished. When the last inform is received, the agent itself will add
@@ -332,6 +333,7 @@ public class CentralAgent extends Agent {
 		}
 
 		showMessage("MOVEMENTS processed.");
+		movements_updated = true;
 		return true;
 	}
 
@@ -351,23 +353,16 @@ public class CentralAgent extends Agent {
 	 * @see sma.ontology.Cell
 	 * @see sma.ontology.InfoGame
 	 */
-	private class InitialRequestResponseBehaviour extends AchieveREResponder {
+	private class InitialRequestResponseBehaviour extends OneShotBehaviour {
 
 		/**
-		 * Constructor for the <code>RequestResponseBehaviour</code> class.
-		 * @param myAgent The agent owning this behaviour
-		 * @param mt Template to receive future responses in this conversation
+		 * 
 		 */
-		public InitialRequestResponseBehaviour(CentralAgent myAgent, MessageTemplate mt) {
-			super(myAgent, mt);
-			showMessage("Waiting REQUESTs from authorized agents");
-		}
+		private static final long serialVersionUID = 1L;
 
-		protected ACLMessage prepareResponse(ACLMessage msg) {
-			/* method called when the message has been received. If the message to send
-			 * is an AGREE the behaviour will continue with the method prepareResultNotification. */
-			
-			showMessage("Message received from" + msg.getSender().getName());
+		@Override
+		public void action() {
+			ACLMessage msg = this.myAgent.receive();
 			ACLMessage reply = msg.createReply();
 			try {
 				
@@ -375,56 +370,103 @@ public class CentralAgent extends Agent {
 				if(contentRebut.equals("Initial request")) {
 					showMessage("Initial request received");
 					reply.setPerformative(ACLMessage.AGREE);
-				} else if(/*turnLastMap < game.getTurn() && */processMovements(msg.getContentObject())) {
-					turnLastMap = game.getTurn();
-					showMessage("Movements applied.");
-					reply.setPerformative(ACLMessage.AGREE);
+					send(reply);
 				}
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
-			//showMessage("Answer sent"); //: \n"+reply.toString());
-			return reply;
-		} //endof prepareResponse   
-
-		/**
-		 * This method is called after the response has been sent and only when
-		 * one of the following two cases arise: the response was an agree message
-		 * OR no response message was sent. This default implementation return null
-		 * which has the effect of sending no result notification. Programmers
-		 * should override the method in case they need to react to this event.
-		 * @param msg ACLMessage the received message
-		 * @param response ACLMessage the previously sent response message
-		 * @return ACLMessage to be sent as a result notification (i.e. one of
-		 * inform, failure).
-		 */
-		protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
-
-			// it is important to make the createReply in order to keep the same context of
-			// the conversation
-			ACLMessage reply = msg.createReply();
+			reply = msg.createReply();
 			reply.setPerformative(ACLMessage.INFORM);
 
 			try {
 				reply.setContentObject(game.getInfo());
+				
 			} catch (Exception e) {
 				reply.setPerformative(ACLMessage.FAILURE);
 				System.err.println(e.toString());
 				e.printStackTrace();
 			}
-			//showMessage("Answer sent"); //+reply.toString());
-			return reply;
-
-		} //endof prepareResultNotification
-
-
-		/**
-		 *  No need for any specific action to reset this behaviour
-		 */
-		public void reset() {
+			send(reply);
 		}
-
-	} //end of RequestResponseBehaviour
+		
+		
+		
+	}
+//	
+//	private class InitialRequestResponseBehaviour extends AchieveREResponder {
+//
+//		/**
+//		 * Constructor for the <code>RequestResponseBehaviour</code> class.
+//		 * @param myAgent The agent owning this behaviour
+//		 * @param mt Template to receive future responses in this conversation
+//		 */
+//		public InitialRequestResponseBehaviour(CentralAgent myAgent, MessageTemplate mt) {
+//			super(myAgent, mt);
+//			showMessage("Waiting REQUESTs from authorized agents");
+//		}
+//
+//		protected ACLMessage prepareResponse(ACLMessage msg) {
+//			/* method called when the message has been received. If the message to send
+//			 * is an AGREE the behaviour will continue with the method prepareResultNotification. */
+//			
+//			showMessage("Message received from" + msg.getSender().getName());
+//			ACLMessage reply = msg.createReply();
+//			try {
+//				
+//				Object contentRebut = (Object)msg.getContent();
+//				if(contentRebut.equals("Initial request")) {
+//					showMessage("Initial request received");
+//					reply.setPerformative(ACLMessage.AGREE);
+//				} else if(/*turnLastMap < game.getTurn() && */processMovements(msg.getContentObject())) {
+//					turnLastMap = game.getTurn();
+//					showMessage("Movements applied.");
+//					reply.setPerformative(ACLMessage.AGREE);
+//				}
+//			} catch (Exception e) {
+//				e.printStackTrace();
+//			}
+//			//showMessage("Answer sent"); //: \n"+reply.toString());
+//			return reply;
+//		} //endof prepareResponse   
+//
+//		/**
+//		 * This method is called after the response has been sent and only when
+//		 * one of the following two cases arise: the response was an agree message
+//		 * OR no response message was sent. This default implementation return null
+//		 * which has the effect of sending no result notification. Programmers
+//		 * should override the method in case they need to react to this event.
+//		 * @param msg ACLMessage the received message
+//		 * @param response ACLMessage the previously sent response message
+//		 * @return ACLMessage to be sent as a result notification (i.e. one of
+//		 * inform, failure).
+//		 */
+//		protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
+//
+//			// it is important to make the createReply in order to keep the same context of
+//			// the conversation
+//			ACLMessage reply = msg.createReply();
+//			reply.setPerformative(ACLMessage.INFORM);
+//
+//			try {
+//				reply.setContentObject(game.getInfo());
+//			} catch (Exception e) {
+//				reply.setPerformative(ACLMessage.FAILURE);
+//				System.err.println(e.toString());
+//				e.printStackTrace();
+//			}
+//			//showMessage("Answer sent"); //+reply.toString());
+//			return reply;
+//
+//		} //endof prepareResultNotification
+//
+//
+//		/**
+//		 *  No need for any specific action to reset this behaviour
+//		 */
+//		public void reset() {
+//		}
+//
+//	} //end of RequestResponseBehaviour
 
 
 	private class RequestResponseBehaviour extends AchieveREResponder {
@@ -471,31 +513,40 @@ public class CentralAgent extends Agent {
 		 * @return ACLMessage to be sent as a result notification (i.e. one of
 		 * inform, failure).
 		 */
-		/*protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
+		@Override
+		protected ACLMessage prepareResultNotification(ACLMessage request,
+				ACLMessage response) throws FailureException {
+			// TODO Auto-generated method stub
+			return super.prepareResultNotification(request, response);
+		}
+		
+//		protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
+//
+//			// it is important to make the createReply in order to keep the same context of
+//			// the conversation
+//			ACLMessage reply = msg.createReply();
+//			reply.setPerformative(ACLMessage.INFORM);
+//
+//			try {
+//				reply.setContentObject(game.getInfo());
+//			} catch (Exception e) {
+//				reply.setPerformative(ACLMessage.FAILURE);
+//				System.err.println(e.toString());
+//				e.printStackTrace();
+//			}
+//			//showMessage("Answer sent"); //+reply.toString());
+//			return reply;
+//
+//		} //endof prepareResultNotification
 
-			// it is important to make the createReply in order to keep the same context of
-			// the conversation
-			ACLMessage reply = msg.createReply();
-			reply.setPerformative(ACLMessage.INFORM);
-
-			try {
-				reply.setContentObject(game.getInfo());
-			} catch (Exception e) {
-				reply.setPerformative(ACLMessage.FAILURE);
-				System.err.println(e.toString());
-				e.printStackTrace();
-			}
-			//showMessage("Answer sent"); //+reply.toString());
-			return reply;
-
-		} //endof prepareResultNotification
-*/
 
 		/**
 		 *  No need for any specific action to reset this behaviour
 		 */
 		public void reset() {
 		}
+
+		
 
 	} //end of RequestResponseBehaviour
 
@@ -561,7 +612,10 @@ public class CentralAgent extends Agent {
 
 			if(!game_finished){
 				// send game info
-				this.myAgent.addBehaviour(new SendInfoBehaviour());
+				if(movements_updated){
+					this.myAgent.addBehaviour(new SendInfoBehaviour());
+					movements_updated = false;
+				} 
 				//get a random number to decide wether to add or not garbage
 				double d = Math.random();
 				if(d <= game.getProbGarbage()){
