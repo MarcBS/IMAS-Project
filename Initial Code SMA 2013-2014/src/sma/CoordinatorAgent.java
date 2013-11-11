@@ -37,10 +37,12 @@ import java.util.*;
 public class CoordinatorAgent extends Agent {
 
   private AuxInfo info;
-  private int countMapRequests = 0;
+  private int[] countMapRequests = {0, 0};
   private int countMovementsReceived = 0;
   
   private AID centralAgent;
+  private AID harvCoordAgent;
+  private AID scoutCoordAgent;
   
   // initializes the array that will store the movement of each agent for each turn
   private ArrayList<Cell> newMovements;
@@ -88,10 +90,16 @@ public class CoordinatorAgent extends Agent {
       doDelete();
     }
 
-    // search CentralAgent
+    // search CentralAgent, HarvesterCoord and ScoutsCoord
     ServiceDescription searchCriterion = new ServiceDescription();
     searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
     this.centralAgent = UtilsAgents.searchAgent(this, searchCriterion);
+    searchCriterion = new ServiceDescription();
+    searchCriterion.setType(UtilsAgents.HARVESTER_COORDINATOR_AGENT);
+    this.harvCoordAgent = UtilsAgents.searchAgent(this, searchCriterion);
+    searchCriterion = new ServiceDescription();
+    searchCriterion.setType(UtilsAgents.SCOUT_COORDINATOR_AGENT);
+    this.scoutCoordAgent = UtilsAgents.searchAgent(this, searchCriterion);
     // searchAgent is a blocking method, so we will obtain always a correct AID
 
    /**************************************************/
@@ -269,26 +277,44 @@ public class CoordinatorAgent extends Agent {
 		    		// If "get map" request received
 		    		Object contentRebut = (Object)msg.getContent();
 			        if(contentRebut.equals("get map")) {
-			        	okGetMap = true;
-			        	showMessage("Map request from " + msg.getSender().getLocalName() + " received.");
-			        	// Send agree
-			        	ACLMessage reply1 = msg.createReply();
-			        	reply1.setPerformative(ACLMessage.AGREE);
 			        	
-			        	send(reply1);
+			        	boolean receive = true;
+			        	// If is scout coordinator agent
+			        	if(msg.getSender().getLocalName().equals(scoutCoordAgent.getLocalName()) && countMapRequests[0] == 0){
+			        		countMapRequests[0] = 1;
+			        	// If is harvester coordinator agent
+			        	} else if(msg.getSender().getLocalName().equals(harvCoordAgent.getLocalName()) && countMapRequests[1] == 0){
+			        		countMapRequests[1] = 1;
+			        	} else {
+			        		receive = false;
+			        	}
 			        	
-			        	// Send map
-			        	ACLMessage reply2 = msg.createReply();
-			  	      	reply2.setPerformative(ACLMessage.INFORM);
-
-			  	      	try {
-			  	      		reply2.setContentObject(info);
-			  	      	} catch (Exception e) {
-			  	      		reply2.setPerformative(ACLMessage.FAILURE);
-			  	      		System.err.println(e.toString());
-			  	      		e.printStackTrace();
-			  	      	}
-			  	      	send(reply2);
+			        	if(receive){
+			        		okGetMap = true;
+				        	showMessage("Map request from " + msg.getSender().getLocalName() + " received.");
+				        	// Send agree
+				        	ACLMessage reply1 = msg.createReply();
+				        	reply1.setPerformative(ACLMessage.AGREE);
+				        	
+				        	send(reply1);
+				        	
+				        	// Send map
+				        	ACLMessage reply2 = msg.createReply();
+				  	      	reply2.setPerformative(ACLMessage.INFORM);
+	
+				  	      	try {
+				  	      		reply2.setContentObject(info);
+				  	      	} catch (Exception e) {
+				  	      		reply2.setPerformative(ACLMessage.FAILURE);
+				  	      		System.err.println(e.toString());
+				  	      		e.printStackTrace();
+				  	      	}
+				  	      	send(reply2);
+				  	      	
+				  	    // We have already received a petition from this agent in this turn
+			        	} else {
+			        		messagesQueue.add(msg);
+			        	}
 			        } else {
 			        	messagesQueue.add(msg);
 			        }
@@ -307,9 +333,11 @@ public class CoordinatorAgent extends Agent {
 		}
 		
 		public int onEnd(){
-			countMapRequests++;
-	    	int thisC = countMapRequests;
-	    	countMapRequests = countMapRequests%2;
+	    	int thisC = countMapRequests[0] + countMapRequests[1];
+	    	if(thisC == 2){
+	    		countMapRequests[0] = 0;
+	    		countMapRequests[1] = 0;
+	    	}
 	    	showMessage("onEnd ListenRequestMap " + String.valueOf(thisC));
 	    	return thisC;
 	    }
@@ -435,7 +463,7 @@ public class CoordinatorAgent extends Agent {
 			// Reset movements list
 			newMovements = new ArrayList<Cell>(info.getNumHarvesters()+info.getNumScouts());
 			countMovementsReceived = 0;
-			countMapRequests = 0;
+			countMapRequests[0] = 0; countMapRequests[1] = 0;
 			
 			// Receiving the new AuxInfo from the CentralAgent
 			boolean auxReceived = false;
