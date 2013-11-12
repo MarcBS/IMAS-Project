@@ -341,7 +341,7 @@ public class HarvesterCoordinatorAgent extends Agent {
 						break;
 					default:
 						// Unexpected messages received must be added to the queue.
-						showMessage("Doing defautl state 3....");
+						//showMessage("Doing defautl state 3....");
 						messagesQueue.add(reply);
 						break;
 					}

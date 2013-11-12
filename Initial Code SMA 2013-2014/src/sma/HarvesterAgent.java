@@ -107,7 +107,7 @@ public class HarvesterAgent extends Agent {
 
 	 		// FSM transitions
 	 		fsm.registerDefaultTransition("STATE_1", "STATE_2");
-	 		fsm.registerDefaultTransition("STATE_2", "STATE_1");
+	 		fsm.registerDefaultTransition("STATE_2", "STATE_2");
 
 	 		// Add behavior of the FSM
 	 		addBehaviour(fsm);
@@ -124,20 +124,20 @@ public class HarvesterAgent extends Agent {
 
 		@Override
 		public void action() {
-			showMessage("Requesting game info harvester coord");
-
-			// Make the request
-			ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
-			request.clearAllReceiver();
-			request.addReceiver(receptor);
-			request.setProtocol(InteractionProtocol.FIPA_REQUEST);
-			try {
-				request.setContent("get map");
-				send(request);
-				showMessage("Requesting game info to " + receptor);
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
+//			showMessage("Requesting game info harvester coord");
+//
+//			// Make the request
+//			ACLMessage request = new ACLMessage(ACLMessage.REQUEST);
+//			request.clearAllReceiver();
+//			request.addReceiver(receptor);
+//			request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+//			try {
+//				request.setContent("get map");
+//				send(request);
+//				showMessage("Requesting game info to " + receptor);
+//			} catch (Exception e) {
+//				e.printStackTrace();
+//			}
 			/*
 			 * Reception of game info
 			 * 
