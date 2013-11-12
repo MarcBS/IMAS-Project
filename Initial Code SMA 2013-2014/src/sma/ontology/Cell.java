@@ -154,7 +154,7 @@ public class Cell implements Serializable {
 	}
 
 	public void addAgent(InfoAgent newAgent) throws Exception {
-		System.out.println("Add an agent to " + this.toString());
+		System.out.println("Add "+newAgent.getAID()+" to " + this.toString());
 		if ((this.getCellType() == BUILDING)
 				|| (this.getCellType() == RECYCLING_CENTER))
 			throw new Exception("Wrong operation");

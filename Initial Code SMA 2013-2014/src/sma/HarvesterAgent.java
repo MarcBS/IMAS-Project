@@ -1,6 +1,7 @@
 package sma;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -344,7 +345,8 @@ public class HarvesterAgent extends Agent {
 	 */
 	public Cell getRandomPosition(Cell[][] map, Cell actualPosition) throws IOException{
 		Cell newPosition = null;
-		showMessage("Checking New Movementss...");
+		boolean trobat = false;
+		showMessage("Checking random movement...");
 		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
 		int maxRows=0, maxColumns=0;
 		maxRows = mapInfo.getMapRows();
@@ -352,15 +354,27 @@ public class HarvesterAgent extends Agent {
 		newPosition = actualPosition;
 		int [][] posibleMovements = {{x+1,y},{x,y+1},{x+1,y-1},{x-1,y+1},{x-1,y},{x,y-1},{x-1,y-1},{x-1,y}};
 		List<int[]> intList = Arrays.asList(posibleMovements);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+
 		int [] list = null;
 		//Search a cell street
-		while(Cell.STREET != newPosition.getCellType() && !newPosition.isThereAnAgent() && list.length!=0){
-			z= mapInfo.getRandomPosition(8);
-			list = intList.remove(z);
+		while(arrayList.size()!=0 && !trobat){
+			z= mapInfo.getRandomPosition(arrayList.size());
+			list = arrayList.remove(z);
+			
 			xi = list[0];
 			yi = list[1];
-			if(xi < maxRows && yi < maxColumns){ //Check the limits of the map
+			if(xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns){ //Check if the position it's in the range of the map
 				newPosition = map[xi][yi];
+				if(!newPosition.isThereAnAgent() && Cell.STREET == newPosition.getCellType() ){ //Check the limits of the map
+					try {
+						showMessage("Position before moving "+"["+x+","+y+"]");
+						newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+					} catch (Exception e) {
+						showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+					}
+					trobat = true;
+				}
 			}else{
 				newPosition = actualPosition; //If you can move you return your same position
 			}

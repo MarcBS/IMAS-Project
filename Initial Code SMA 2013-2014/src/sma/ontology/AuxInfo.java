@@ -53,7 +53,7 @@ public class AuxInfo implements java.io.Serializable {
 	private Random generator;
 	
 	public AuxInfo(){
-		generator = new Random(seed);
+		generator = new Random();
 	}
 
 	// For each InfoAgent it contains its initial cell
@@ -223,7 +223,7 @@ public class AuxInfo implements java.io.Serializable {
 		while(it.hasNext() && !trobat) {
 		    cell = it.next();
 			agent = cell.getAgent();
-			if (agent.getAID() == aid){
+			if (agent.getAID().equals(aid)){
 				trobat = true;
 			}			
 		}
@@ -235,6 +235,7 @@ public class AuxInfo implements java.io.Serializable {
 	 * @return Return a position
 	 */
 	public int getRandomPosition(int size){
+		generator = new Random();
 	    int num = generator.nextInt(size);
 	    return num;
 	}

@@ -151,9 +151,10 @@ public class ScoutAgent extends Agent {
 									// Send the cell
 						        	ACLMessage reply2 = reply.createReply();
 						  	      	reply2.setPerformative(ACLMessage.INFORM);
+						  	      	Cell c = null;
 						  	      	try {
 						  	      		AID agent_aid = this.myAgent.getAID();
-						  	      		Cell c = auxInfo.getAgentCell(agent_aid);
+						  	      		c = auxInfo.getAgentCell(agent_aid);
 						  	      		c = getRandomPosition(auxInfo.getMap(), c);
 					  	      			reply2.setContentObject(c); //Return a new cell to scout coordinator
 						  	      	} catch (Exception e1) {
@@ -161,7 +162,7 @@ public class ScoutAgent extends Agent {
 						  	      		System.err.println(e.toString());
 						  	      	}
 						  	      	send(reply2);
-									showMessage("Sending the cell position to "+receptor);
+									showMessage("Sending the cell ["+c.getRow()+","+c.getColumn()+"] position to "+receptor);
 									okInfo = true;
 		
 								} catch (UnreadableException e1) {
@@ -256,7 +257,7 @@ public class ScoutAgent extends Agent {
 					  	      		System.err.println(e1.toString());
 					  	      	}
 					  	      	send(reply2);
-								showMessage("Sending the cell position to "+receptor);
+								showMessage("Sending the cell ["+c.getRow()+","+c.getColumn()+"] position to "+receptor);
 								okInfo = true;
 							} catch (UnreadableException e) {
 								messagesQueue.add(reply);
@@ -313,25 +314,27 @@ public class ScoutAgent extends Agent {
 		int [] list = null;
 		//Search a cell street
 		while(arrayList.size()!=0 && !trobat){
-			z= auxInfo.getRandomPosition(intList.size());
+			z= auxInfo.getRandomPosition(arrayList.size());
 			list = arrayList.remove(z);
 			
 			xi = list[0];
 			yi = list[1];
-			newPosition = map[xi][yi];
-			if(xi < maxRows && yi < maxColumns && !newPosition.isThereAnAgent() && Cell.STREET == newPosition.getCellType() ){ //Check the limits of the map
-				try {
-					showMessage("Position before moving "+"x:"+x+" y:"+y);
-					newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
-				} catch (Exception e) {
-					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+			if(xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns){ //Check if the position it's in the range of the map
+				newPosition = map[xi][yi];
+				if(!newPosition.isThereAnAgent() && Cell.STREET == newPosition.getCellType() ){ //Check the limits of the map
+					try {
+						showMessage("Position before moving "+"["+x+","+y+"]");
+						newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+					} catch (Exception e) {
+						showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+					}
+					trobat = true;
 				}
-				trobat = true;
 			}else{
 				newPosition = actualPosition; //If you can move you return your same position
 			}
 		}
-
+		
 		return newPosition;
 	}
 }

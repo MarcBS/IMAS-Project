@@ -84,7 +84,7 @@ public class CentralAgent extends Agent {
     	  x = game.getInfo().getRandomPosition(20);
     	  y = game.getInfo().getRandomPosition(20);
     	  c = currentGame.getInfo().getCell(x,y);
-    	  if(c.getCellType()==c.STREET){
+    	  if(c.getCellType()==c.STREET && !c.isThereAnAgent()){
     		  agentName = this.scoutName+String.valueOf(numScouts);
         	  //Create the scout agent
               utils.createAgent(container, agentName, "sma.ScoutAgent",parameters);
@@ -599,6 +599,7 @@ public class CentralAgent extends Agent {
 			game.incrTurn();
 			int turn = game.getTurn();
 			if(turn <= game.getGameDuration()){
+				System.out.println("\n\n");
 				showMessage("Turn " + String.valueOf(turn));
 				// Finishing game
 			} else {
