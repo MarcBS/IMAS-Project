@@ -307,7 +307,7 @@ public class ScoutAgent extends Agent {
 		maxRows = auxInfo.getMapRows();
 		maxColumns = auxInfo.getMapColumns();
 		newPosition = actualPosition;
-		int [][] posibleMovements = {{x+1,y},{x,y+1},{x+1,y-1},{x-1,y+1},{x-1,y},{x,y-1},{x-1,y-1},{x-1,y}};
+		int [][] posibleMovements = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
 		List<int[]> intList = Arrays.asList(posibleMovements);
 		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
 
