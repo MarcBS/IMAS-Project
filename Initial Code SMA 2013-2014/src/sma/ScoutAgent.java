@@ -25,6 +25,7 @@ import sma.ScoutCoordinatorAgent.InitialSendToScout;
 import sma.ScoutCoordinatorAgent.RequestGameInfo;
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
+import sma.ontology.DelimitingZone;
 import sma.ontology.InfoAgent;
 import sma.ontology.InfoGame;
 
@@ -37,7 +38,7 @@ public class ScoutAgent extends Agent {
 	// array storing the not handled messages
 	private MessagesList messagesQueue = new MessagesList(this);
 	private AuxInfo auxInfo;
-	private Cell objectivePosition; //Cell of the objective position of the agent
+	private DelimitingZone patrolZone; // object describing the zone where the scout must patrol
 		
 	public ScoutAgent(){
 		 super();
@@ -91,12 +92,18 @@ public class ScoutAgent extends Agent {
 				return super.onEnd();
 			}
 	    };
+	    
+	    // Behaviour to receive first AuxInfo and DelimitingZone where it will have to patrol.
 	    fsm.registerFirstState(new InitialRecieve(this, scoutCoordinatorAgent), "STATE_1");
+	    // Behaviour to send the list of garbage positions that is has found in this turn.
 	    fsm.registerState(new SendGarbagePositions(this, scoutCoordinatorAgent), "STATE_2");
+	    // Behaviour to receive AuxInfo for each turn.
 	    fsm.registerState(new RecieveGameInfo(this, scoutCoordinatorAgent), "STATE_3");
+	    
 	    fsm.registerDefaultTransition("STATE_1", "STATE_2");
 	    fsm.registerDefaultTransition("STATE_2", "STATE_3");
 	    fsm.registerDefaultTransition("STATE_3", "STATE_2");
+	    
 	    addBehaviour(fsm);
 	}	 
 	
@@ -152,8 +159,8 @@ public class ScoutAgent extends Agent {
 								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
 							} catch (ClassCastException e){
 								try {
-									objectivePosition = (Cell) reply.getContentObject();
-									showMessage("Receiving objective position from "+receptor);
+									patrolZone = (DelimitingZone) reply.getContentObject();
+									showMessage("Receiving patrol zone from "+receptor);
 									// Send the cell
 						        	ACLMessage reply2 = reply.createReply();
 						  	      	reply2.setPerformative(ACLMessage.INFORM);

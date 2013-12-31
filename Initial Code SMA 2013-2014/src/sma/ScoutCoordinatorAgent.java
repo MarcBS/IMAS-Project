@@ -6,6 +6,7 @@ import java.util.Random;
 
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
+import sma.ontology.DelimitingZone;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.FSMBehaviour;
@@ -96,7 +97,8 @@ public class ScoutCoordinatorAgent extends Agent{
 	    
 	    // Behaviour to request game info
 	    fsm.registerFirstState(new RequestGameInfo(this, coordinatorAgent), "STATE_1");
-	    // Behaviour to send game info and first random movement to scout agents 
+	    // Behaviour to send game info, first random movement and delimiting zone 
+	    // (buildings to explore) to scout agents 
 	    fsm.registerState(new InitialSendToScout(this), "STATE_2");
 	    // Behaviour to receive one movement from one scout 
 	    fsm.registerState(new ReceiveMovement(this), "STATE_3");
@@ -133,7 +135,6 @@ public class ScoutCoordinatorAgent extends Agent{
 	 * @author Albert Busqué
 	 *
 	 * Class that implements behavior for requesting game info (map)
-	 * NOT TESTED YET!!!
 	 */
 	protected class RequestGameInfo extends SimpleBehaviour 
 	{
@@ -222,7 +223,6 @@ public class ScoutCoordinatorAgent extends Agent{
 	 * @author Albert
 	 * 
 	 * Class that implements behavior for sending game info (map) to all scout agents and a random movement
-	 * NOT TESTED YET!!!
 	 */
 	protected class InitialSendToScout extends SimpleBehaviour 
 	{
@@ -235,6 +235,10 @@ public class ScoutCoordinatorAgent extends Agent{
 		public void action() {
 			Random rnd = new Random();
 			
+			// Get delimiting zones for all the scouts
+			ArrayList<DelimitingZone> zones = new ArrayList<DelimitingZone>();
+			zones = getDelimitingZones(zones, info.getScout_aids().size());
+			
 			/* Make a broadcast to all scouts agent sending the game info and movement*/
 			for (int i=0; i<info.getScout_aids().size(); i++)
 			{	
@@ -243,28 +247,27 @@ public class ScoutCoordinatorAgent extends Agent{
 				request.clearAllReceiver();
 			    request.addReceiver(info.getScout_aids().get(i));
 			    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
-			    try 
-			    {
+			    try {
 			    	request.setContentObject(info);
 			    } catch (Exception e) {
-				    	request.setPerformative(ACLMessage.FAILURE);
-				    	e.printStackTrace();
-				    	}
+				    request.setPerformative(ACLMessage.FAILURE);
+				    e.printStackTrace();
+				}
 			    send(request);
 			    showMessage("Sending game info to "+info.getScout_aids().get(i));
 			    
-			    /* Make a broadcast to all scouts sending random movement*/
-			    int mapSize = info.getMap().length;
-			    Cell c = info.getCell(rnd.nextInt(mapSize), rnd.nextInt(mapSize));
-			    try 
-			    {
-			    	request.setContentObject(c);
+			    /* Make a broadcast to all scouts sending the assigned DelimitingZone*/
+			    //int mapSize = info.getMap().length;
+			    //Cell c = info.getCell(rnd.nextInt(mapSize), rnd.nextInt(mapSize));
+			    DelimitingZone dz = zones.get(i);
+			    try {
+			    	request.setContentObject(dz);
 			    } catch (Exception e) {
-				    	request.setPerformative(ACLMessage.FAILURE);
-				    	e.printStackTrace();
-				    	}
+				    request.setPerformative(ACLMessage.FAILURE);
+				    e.printStackTrace();
+				}
 			    send(request);
-			    showMessage("Sending random movement to "+info.getScout_aids().get(i));
+			    showMessage("Sending random movement to "+ info.getScout_aids().get(i));
 			}
 		}
 
@@ -284,7 +287,6 @@ public class ScoutCoordinatorAgent extends Agent{
 	 * @author Albert
 	 * 
 	 * Class that implements behavior of receiving movements from scouts
-	 * NOT TESTED YET!!!
 	 */
 	protected class ReceiveMovement extends SimpleBehaviour
 	{
@@ -358,7 +360,6 @@ public class ScoutCoordinatorAgent extends Agent{
 	 * @author Albert
 	 * 
 	 * Class that implements behavior of sending one movement to one scout
-	 * NOT TESTED YET!!!
 	 */
 	protected class SendMovement extends SimpleBehaviour
 	{	
@@ -410,7 +411,6 @@ public class ScoutCoordinatorAgent extends Agent{
 	 * @author Albert
 	 * 
 	 * Class that implements behavior of sending game info to all scouts
-	 * NOT TESTED YET!!!
 	 */
 	protected class SendGameInfo extends SimpleBehaviour
 	{
@@ -573,6 +573,39 @@ public class ScoutCoordinatorAgent extends Agent{
 	    	showMessage("STATE_7 return OK");
 	    	return 0;
 	    }
+	}
+
+	/**
+	 * Creates each of the zones for the available ScoutAgents dividing 
+	 * all the map by half until it reaches the desired number.
+	 * 
+	 * @param zones ArrayList<DelimitingZone> empty.
+	 * @param nScouts int number of scouts in our charge.
+	 * @return zones ArrayList<DelimitingZone> with all the zones created.
+	 */
+	public ArrayList<DelimitingZone> getDelimitingZones(ArrayList<DelimitingZone> zones, int nScouts) {
+		
+		// Initialize first zone containing all the map.
+		DelimitingZone dz = new DelimitingZone(0, 0, this.info.getMapRows()-1, this.info.getMapColumns()-1);
+		try {
+			
+			dz.setBuildings(this.info);
+			zones.add(dz);
+			
+			// Divides each of the zones by half until we have a zone for each scout
+			for(int i = 1; i < nScouts; i++){
+				dz = zones.get(0);
+				zones.remove(0);
+				DelimitingZone[] dzs = dz.divideZone();
+				zones.add(dzs[0]);
+				zones.add(dzs[1]);
+			}
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+		
+		return zones;
 	}
 	
 }
