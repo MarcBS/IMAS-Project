@@ -363,7 +363,7 @@ public class ScoutAgent extends Agent {
 	 * @throws IOException Error of sending message
 	 */
 	public Cell getRandomPosition(Cell[][] map, Cell actualPosition) throws IOException{
-		Cell newPosition = null;
+		Cell newPosition = null, positionToReturn = actualPosition;
 		boolean trobat = false;
 		showMessage("Checking random movement...");
 		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
@@ -377,29 +377,60 @@ public class ScoutAgent extends Agent {
 
 		int [] list = null;
 		//Search a cell street
-		while(arrayList.size()!=0 && !trobat){
+		while(arrayList.size()!=0 && !trobat)
+		{
 			z= auxInfo.getRandomPosition(arrayList.size());
 			list = arrayList.remove(z);
 			
 			xi = list[0];
 			yi = list[1];
-			if(xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns){ //Check if the position it's in the range of the map
+			if(xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns)	//Check if the position it's in the range of the map
+			{ 
 				newPosition = map[xi][yi];
-				if(!newPosition.isThereAnAgent() && Cell.STREET == newPosition.getCellType() ){ //Check the limits of the map
-					try {
-						showMessage("Position before moving "+"["+x+","+y+"]");
-						newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
-					} catch (Exception e) {
-						showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+				if(Cell.STREET == newPosition.getCellType() )	//Check the limits of the map
+				{ 
+					/* If there is a scout agent in front of */
+					if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT)
+					{
+						/* Compare the ID's of each scout. The bigger one will be moved to desired position*/
+						int h1 = auxInfo.getInfoAgent(this.scoutCoordinatorAgent).getAID().hashCode();
+						int h2 = newPosition.getAgent().getAID().hashCode();
+						if (h1 > h2)
+						{
+							try {
+								showMessage("Position before moving "+"["+x+","+y+"]");
+								newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+								positionToReturn = newPosition;
+								//actualPosition.removeAgent(actualPosition.getAgent());
+							} catch (Exception e) {
+								showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+							}
+							trobat = true;
+						}
 					}
-					trobat = true;
+					/* If there is a harvester agent in front of */
+					else if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.HARVESTER)
+					{
+						// Do nothing.
+						
+					}
+					/* If there is not an agent */
+					else
+					{
+						try {
+							showMessage("Position before moving "+"["+x+","+y+"]");
+							newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+							positionToReturn = newPosition;
+							//actualPosition.removeAgent(actualPosition.getAgent());
+						} catch (Exception e) {
+							showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+						}
+						trobat = true;		
+					}
 				}
-			}else{
-				newPosition = actualPosition; //If you can move you return your same position
 			}
-		}
-		
-		return newPosition;
+		}	
+		return positionToReturn;
 	}
 	
 	/**
