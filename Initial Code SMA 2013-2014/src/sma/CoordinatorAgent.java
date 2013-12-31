@@ -35,6 +35,9 @@ import java.util.*;
  * @version 2.0
  */
 public class CoordinatorAgent extends Agent {
+	
+	// Indicates if we want to show the debugging messages
+	private boolean debugging = false;
 
   private AuxInfo info;
   private int[] countMapRequests = {0, 0};
@@ -46,6 +49,8 @@ public class CoordinatorAgent extends Agent {
   
   // initializes the array that will store the movement of each agent for each turn
   private ArrayList<Cell> newMovements;
+  // stores the new discoveries found
+  private ArrayList newDiscoveries = new ArrayList();
   
   // array storing the not handled messages
   private MessagesList messagesQueue = new MessagesList(this);
@@ -59,7 +64,8 @@ public class CoordinatorAgent extends Agent {
    * @param str String to show
    */
   private void showMessage(String str) {
-    System.out.println(getLocalName() + ": " + str);
+	  if(debugging)
+		  System.out.println(getLocalName() + ": " + str);
   }
 
 
@@ -132,11 +138,26 @@ public class CoordinatorAgent extends Agent {
     fsm.registerState(new ReceiveMovements(this), "STATE_3");
     // Send movements received to CentralAgent and wait for its map response
     fsm.registerState(new SendMovesBehaviour(this), "STATE_4");
+    // Waiting for all new discoveries from ScoutsCoordinator
+    fsm.registerState(new ReceiveNewDiscoveriesScouts(this), "STATE_5");
+    // Sends all new discoveries to CentralAgent
+    fsm.registerState(new SendNewDiscoveriesCentral(this), "STATE_6");
+    // Waiting for only the really new discoveries from CentralAgent
+    fsm.registerState(new ReceiveNewDiscoveriesCentral(this), "STATE_7");
+    // Sends all new discoveries to HarvesterCoordinator
+    fsm.registerState(new SendNewDiscoveriesHarvesters(this), "STATE_8");
     
     // FSM transitions
     fsm.registerDefaultTransition("STATE_1", "STATE_2");
     fsm.registerTransition("STATE_2", "STATE_2", 1);
-    fsm.registerTransition("STATE_2", "STATE_3", 2);
+    //fsm.registerTransition("STATE_2", "STATE_3", 2);
+    
+    fsm.registerTransition("STATE_2", "STATE_5", 2);
+    fsm.registerDefaultTransition("STATE_5", "STATE_6");
+    fsm.registerDefaultTransition("STATE_6", "STATE_7");
+    fsm.registerDefaultTransition("STATE_7", "STATE_8");
+    fsm.registerDefaultTransition("STATE_8", "STATE_3");
+    
     fsm.registerTransition("STATE_3", "STATE_3", 1);
     fsm.registerTransition("STATE_3", "STATE_4", 2);
     fsm.registerDefaultTransition("STATE_4", "STATE_2");
@@ -238,7 +259,6 @@ public class CoordinatorAgent extends Agent {
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -328,7 +348,6 @@ public class CoordinatorAgent extends Agent {
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -390,7 +409,6 @@ public class CoordinatorAgent extends Agent {
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -484,7 +502,6 @@ public class CoordinatorAgent extends Agent {
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -496,6 +513,218 @@ public class CoordinatorAgent extends Agent {
 
   
   /*************************************************************************/
+	
+	/**
+	   * 
+	   * STATE_5
+	   * Waiting for new discoveries from the ScoutsCoordinator.
+	   * 
+	   * @author Marc Bolaños
+	   *
+	   */
+		protected class ReceiveNewDiscoveriesScouts extends SimpleBehaviour {
+			
+			public ReceiveNewDiscoveriesScouts (Agent a)
+			{
+				super(a);
+			}
+
+			@Override
+			public void action() {
+				
+				showMessage("STATE_5");
+				showMessage("Waiting for new discoveries from ScoutsCoordinator.");
+
+				boolean okDisc = false;
+				while(!okDisc){
+					ACLMessage msg = messagesQueue.getMessage();
+					
+					try {
+						ArrayList contentRebut = (ArrayList)msg.getContentObject();
+				        if(msg.getSender().equals(scoutCoordAgent)) {
+				        	newDiscoveries = contentRebut;
+				        	okDisc = true;
+				        	showMessage("New discoveries from " + msg.getSender().getLocalName() + " received.");
+				        } else {
+				        	messagesQueue.add(msg);
+				        }
+					}catch (Exception e){
+						messagesQueue.add(msg);
+					}
+				}
+				
+		        messagesQueue.endRetrieval();
+		        
+			}
+
+			@Override
+			public boolean done() {
+				return true;
+			}
+			
+			public int onEnd(){
+				showMessage("STATE_5 return 0");
+				return 0;
+		    }
+		}
+
+
+	  /*************************************************************************/
+		
+		/**
+		   * STATE_6
+		   * Sends the new discoveries to the CentralAgent.
+		   * 
+		   * @author Marc Bolaños
+		   *
+		   */
+			protected class SendNewDiscoveriesCentral extends SimpleBehaviour {
+				
+				public SendNewDiscoveriesCentral (Agent a)
+				{
+					super(a);
+				}
+
+				@Override
+				public void action() {
+					
+					showMessage("STATE_6");
+					
+					// Requests the map again sending the list of movements
+			        ACLMessage discoveriesMsg = new ACLMessage(ACLMessage.INFORM);
+			        discoveriesMsg.clearAllReceiver();
+			        discoveriesMsg.addReceiver(CoordinatorAgent.this.centralAgent);
+			        discoveriesMsg.setProtocol(InteractionProtocol.FIPA_REQUEST);
+
+				    try {
+				    	discoveriesMsg.setContentObject(newDiscoveries);
+				    } catch (Exception e) {
+				    	e.printStackTrace();
+				    }
+				    
+				    send(discoveriesMsg);
+					
+				}
+
+				@Override
+				public boolean done() {
+					return true;
+				}
+				
+				public int onEnd(){
+			    	showMessage("STATE_6 return 0");
+			    	return 0;
+			    }
+			}
+
+		  
+		/*************************************************************************/
+		
+		  /**
+		   * 
+		   * STATE_7
+		   * Waiting for new discoveries from the CentralAgent.
+		   * 
+		   * @author Marc Bolaños
+		   *
+		   */
+			protected class ReceiveNewDiscoveriesCentral extends SimpleBehaviour {
+				
+				public ReceiveNewDiscoveriesCentral (Agent a)
+				{
+					super(a);
+				}
+
+				@Override
+				public void action() {
+					
+					showMessage("STATE_7");
+					showMessage("Waiting for new discoveries from CentralAgent.");
+
+					boolean okDisc = false;
+					while(!okDisc){
+						ACLMessage msg = messagesQueue.getMessage();
+						
+						try {
+							ArrayList contentRebut = (ArrayList)msg.getContentObject();
+					        if(msg.getSender().equals(centralAgent)) {
+					        	newDiscoveries = contentRebut;
+					        	okDisc = true;
+					        	showMessage("New discoveries from " + msg.getSender().getLocalName() + " received.");
+					        } else {
+					        	messagesQueue.add(msg);
+					        }
+						}catch (Exception e){
+							messagesQueue.add(msg);
+						}
+					}
+					
+			        messagesQueue.endRetrieval();
+			        
+				}
+
+				@Override
+				public boolean done() {
+					return true;
+				}
+				
+				public int onEnd(){
+					showMessage("STATE_7 return 0");
+					return 0;
+			    }
+			}
+
+
+		  /*************************************************************************/
+		  
+		  /**
+		   * STATE_8
+		   * Sends the new discoveries to the HarvestersCoordinator.
+		   * 
+		   * @author Marc Bolaños
+		   *
+		   */
+			protected class SendNewDiscoveriesHarvesters extends SimpleBehaviour {
+				
+				public SendNewDiscoveriesHarvesters (Agent a)
+				{
+					super(a);
+				}
+
+				@Override
+				public void action() {
+					
+					showMessage("STATE_8");
+					
+					// Requests the map again sending the list of movements
+			        ACLMessage discoveriesMsg = new ACLMessage(ACLMessage.INFORM);
+			        discoveriesMsg.clearAllReceiver();
+			        discoveriesMsg.addReceiver(CoordinatorAgent.this.harvCoordAgent);
+			        discoveriesMsg.setProtocol(InteractionProtocol.FIPA_REQUEST);
+
+				    try {
+				    	discoveriesMsg.setContentObject(newDiscoveries);
+				    } catch (Exception e) {
+				    	e.printStackTrace();
+				    }
+				    
+				    send(discoveriesMsg);
+					
+				}
+
+				@Override
+				public boolean done() {
+					return true;
+				}
+				
+				public int onEnd(){
+			    	showMessage("STATE_8 return 0");
+			    	return 0;
+			    }
+			}
+
+		  
+		/*************************************************************************/
   
   
 

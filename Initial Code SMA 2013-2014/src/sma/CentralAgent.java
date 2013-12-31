@@ -8,6 +8,9 @@ import java.util.ArrayList;
 
 
 
+
+
+
 // import jade.util.leap.ArrayList;
 import jade.util.leap.List;
 import jade.core.*;
@@ -37,6 +40,9 @@ import java.util.*;
  * @version 2.0
  */
 public class CentralAgent extends Agent {
+	
+	// Indicates if we want to show the debugging messages
+	private boolean debugging = false;
 
 	private sma.gui.GraphicInterface gui;
 	private sma.ontology.InfoGame game;
@@ -47,6 +53,12 @@ public class CentralAgent extends Agent {
 
 	private AID coordinatorAgent;
 	private int turnLastMap = 0;
+	
+	// stores the new discoveries found
+	private ArrayList newDiscoveries = new ArrayList();
+	
+	// array storing the not handled messages
+	private MessagesList messagesQueue = new MessagesList(this);
 	
 	private boolean movements_updated = false;
 	
@@ -60,7 +72,8 @@ public class CentralAgent extends Agent {
 	 */
 	private void showMessage(String str) {
 		if (gui!=null) gui.showLog(str + "\n");
-		System.out.println(getLocalName() + ": " + str);
+		if(debugging)
+			System.out.println(getLocalName() + ": " + str);
 	}
 
 	private java.util.List<Cell> placeAgents(InfoGame currentGame) throws Exception {
@@ -213,32 +226,6 @@ public class CentralAgent extends Agent {
 
 	} //endof setup
 
-
-	private void checkScoutsDiscoveries(){
-		showMessage("Checking New Discoveries...");
-		java.util.List<Cell> remove = new LinkedList<Cell>();
-		for (Cell a : agents){
-			if (a.getAgent().getAgentType()==InfoAgent.SCOUT){
-				for (Cell b : game.getBuildingsGarbage()){
-					int x=a.getRow(); int y=a.getColumn();
-					int xb=b.getRow(); int yb=b.getColumn();
-					if (x>0){
-						if ((xb==x-1) && (yb==y)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-						if ((y>0) && (xb==x-1) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);} 
-						if ((y<game.getInfo().getMap()[x].length-1) && (xb==x-1) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-					}
-					if (x<game.getInfo().getMap().length-1){
-						if ((xb==x+1) && (yb==y)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-						if ((y>0) && (xb==x+1) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-						if ((y<game.getInfo().getMap()[x].length-1) && (xb==x+1) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-					}
-					if ((y>0) && (xb==x) && (yb==y-1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-					if ((y<game.getInfo().getMap()[x].length-1) && (xb==x) && (yb==y+1)) {game.getInfo().setCell(xb, yb, b); remove.add(b);}
-				}
-			}	   
-		}
-		for (Cell r : remove)  game.getBuildingsGarbage().remove(r);
-	}
 
 
 	/**
@@ -581,7 +568,7 @@ public class CentralAgent extends Agent {
 	 * Performs the main loop of the application checking the moves of the agents and
 	 * updating the GUI until we reach the number of turns for this game.
 	 * 
-	 * @author Marc Bolaï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½os
+	 * @author Marc Bolaños
 	 *
 	 */
 	private class MainLoopBehaviour extends TickerBehaviour {
@@ -617,7 +604,7 @@ public class CentralAgent extends Agent {
 					this.myAgent.addBehaviour(new SendInfoBehaviour());
 					movements_updated = false;
 				} 
-				//get a random number to decide wether to add or not garbage
+				//get a random number to decide whether to add or not garbage
 				double d = Math.random();
 				if(d <= game.getProbGarbage()){
 					try {
@@ -627,6 +614,12 @@ public class CentralAgent extends Agent {
 						// do nothing
 					}
 				}
+				// wait for the new garbage discoveries 
+				this.myAgent.addBehaviour(new ReceiveNewDiscoveries((CentralAgent) this.myAgent));
+				
+				// send only the really new garbage discoveries to the CoordinatorAgent
+				this.myAgent.addBehaviour(new SendNewDiscoveries((CentralAgent) this.myAgent));
+				
 				// wait for the new positions 
 				this.myAgent.addBehaviour(new RequestResponseBehaviour((CentralAgent) this.myAgent, null));
 				
@@ -637,6 +630,110 @@ public class CentralAgent extends Agent {
 			}
 
 		}
+		
+		/*************************************************************************/
+		
+		 /**
+		   * 
+		   * Waiting for new discoveries from the CoordinatorAgent
+		   * 
+		   * @author Marc Bolaños
+		   *
+		   */
+			protected class ReceiveNewDiscoveries extends SimpleBehaviour {
+				
+				
+				public ReceiveNewDiscoveries (Agent a)
+				{
+					super(a);
+				}
+
+				@Override
+				public void action() {
+					
+					showMessage("Waiting for new discoveries from CoordinatorAgent.");
+
+					boolean okDisc = false;
+					while(!okDisc){
+						ACLMessage msg = messagesQueue.getMessage();
+						
+						try {
+							ArrayList contentRebut = (ArrayList)msg.getContentObject();
+					        if(msg.getSender().equals(coordinatorAgent)) {
+					        	newDiscoveries = checkIfNewDiscoveries(contentRebut);
+					        	okDisc = true;
+					        	showMessage("New discoveries from " + msg.getSender().getLocalName() + " received.");
+					        } else {
+					        	messagesQueue.add(msg);
+					        }
+						}catch (Exception e){
+							messagesQueue.add(msg);
+						}
+					}
+					
+			        messagesQueue.endRetrieval();
+			        
+				}
+
+				@Override
+				public boolean done() {
+					return true;
+				}
+				
+				public int onEnd(){
+					return 0;
+			    }
+			}
+
+			/*************************************************************************/
+			
+			/**
+			   * Sends the new discoveries to the CoordinatorAgent.
+			   * 
+			   * @author Marc Bolaños
+			   *
+			   */
+				protected class SendNewDiscoveries extends SimpleBehaviour {
+					
+					public SendNewDiscoveries(Agent a)
+					{
+						super(a);
+					}
+
+					@Override
+					public void action() {
+						
+						// Requests the map again sending the list of movements
+				        ACLMessage discoveriesMsg = new ACLMessage(ACLMessage.INFORM);
+				        discoveriesMsg.clearAllReceiver();
+				        discoveriesMsg.addReceiver(coordinatorAgent);
+				        discoveriesMsg.setProtocol(InteractionProtocol.FIPA_REQUEST);
+
+					    try {
+					    	discoveriesMsg.setContentObject(newDiscoveries);
+					    } catch (Exception e) {
+					    	e.printStackTrace();
+					    }
+					    
+					    send(discoveriesMsg);
+						
+					}
+
+					@Override
+					public boolean done() {
+						return true;
+					}
+					
+					public int onEnd(){
+				    	return 0;
+				    }
+				}
+
+			  
+			/*************************************************************************/
+		
+		
+		
 		/**
 		 * Adds garbage to the buildings in the map without garbage
 		 * @throws Exception
@@ -667,9 +764,60 @@ public class CentralAgent extends Agent {
 
 			b.setGarbageType(type);
 			b.setGarbageUnits(units);
+			
+			// set garbage into the map inside auxInfo
+			Cell[][] map = game.getInfo().getMap();
+			map[b.getRow()][b.getColumn()] = b;
+			game.getInfo().setMap(map);
+			
+			// set garbage into the list of buildings with garbage
 			java.util.List<Cell> tmp = game.getBuildingsGarbage();
 			tmp.add(b);
 			game.setBuildingsGarbage(tmp);
+		}
+		
+		/**
+		 * Checks for each received garbage position if it is really new or it has been found before.
+		 * 
+		 * @param disc ArrayList with all the garbage positions found.
+		 * @return ArrayList with all the really new garbages.
+		 */
+		private ArrayList checkIfNewDiscoveries(ArrayList disc){
+			
+			ArrayList trueDisc = new ArrayList();
+			ArrayList<Integer> toDelete = new ArrayList<Integer>();
+			java.util.List<Cell> list = game.getBuildingsGarbage();
+			int count = 0;
+			// we go through all the garbages that have not been detected yet
+			for(Cell g : list){
+				boolean found = false;
+				int i = 0;
+				// and compare them with all the discovered garbages by the scouts
+				while(!found && i < disc.size()){
+					ArrayList g2 = (ArrayList)disc.get(i);
+					if((int)g2.get(0) == g.getRow() && (int)g2.get(1) == g.getColumn()){
+						found = true;
+					} else {
+						i++;
+					}
+				}
+				// if we have found a true new position, then we add it to the 
+				// list of true new discoveries (trueDisc) and delete it from
+				// the rest of the lists.
+				if(found){
+					trueDisc.add((ArrayList)disc.get(i));
+					disc.remove(i);
+					toDelete.add(count);
+				}
+				count++;
+			}
+			// Deletes all the found garbages from the list in "game".
+			for(int i : toDelete){
+				list.remove(i);
+			}
+			game.setBuildingsGarbage(list);
+			
+			return trueDisc;
 		}
 
 	}

@@ -19,7 +19,7 @@ import java.util.*;
 public class InfoGame implements java.io.Serializable {
 
   private AuxInfo info;  //Object sent to the CoordinatorAgent during the initialization
-  private List<Cell> buildingsGarbage; //List of the undiscovered buildings containg garbage. 
+  private List<Cell> buildingsGarbage; //List of the undiscovered buildings containing garbage. 
   									   //It cannot be sent to the CoordinatorAgent.
   // a list containing all the buildings
   

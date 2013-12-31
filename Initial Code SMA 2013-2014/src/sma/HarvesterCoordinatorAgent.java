@@ -31,6 +31,9 @@ import jade.lang.acl.UnreadableException;
  */
 public class HarvesterCoordinatorAgent extends Agent {
 
+	// Indicates if we want to show the debugging messages
+	private boolean debugging = false;
+	
 	private AID coordinatorAgent;
 	private AuxInfo mapInfo;
 	private int countMapRequests = 0;
@@ -39,6 +42,15 @@ public class HarvesterCoordinatorAgent extends Agent {
 	private MessagesList messagesQueue = new MessagesList(this);
 
 	private LinkedList<Cell> movementList = new LinkedList<Cell>();
+	
+	/**
+	 *  Stores all the garbages that have not been "bought" yet, 
+	 *  each in an ArrayList with the following format:
+	 *  	- int Row
+	 *  	- int Column
+	 *  	- Cell with all information
+	 */
+	private ArrayList auctionGarbages = new ArrayList();
 
 	public HarvesterCoordinatorAgent() {
 	}
@@ -108,16 +120,22 @@ public class HarvesterCoordinatorAgent extends Agent {
 		fsm.registerState(new SendMovement(this), "STATE_4");
 		// Behaviour to send game info to all harvester
 		fsm.registerState(new SendGameInfo(this), "STATE_5");
+		// Behaviour to receive all new garbage positions from Coordinator Agent
+		fsm.registerState(new ReceiveNewGarbages(this), "STATE_6");
 
 		// FSM transitions
 		fsm.registerTransition("STATE_1", "STATE_2", 1);
 		fsm.registerTransition("STATE_1", "STATE_5", 2);
-		fsm.registerDefaultTransition("STATE_2", "STATE_3");
+		//fsm.registerDefaultTransition("STATE_2", "STATE_3");
 		fsm.registerTransition("STATE_3", "STATE_3", 1);
 		fsm.registerTransition("STATE_3", "STATE_4", 2);
 		fsm.registerTransition("STATE_4", "STATE_4", 1);
 		fsm.registerTransition("STATE_4", "STATE_1", 2);
-		fsm.registerDefaultTransition("STATE_5", "STATE_3");
+		//fsm.registerDefaultTransition("STATE_5", "STATE_3");
+		
+		fsm.registerDefaultTransition("STATE_5", "STATE_6");
+		fsm.registerDefaultTransition("STATE_2", "STATE_6");
+		fsm.registerDefaultTransition("STATE_6", "STATE_3");
 
 		// Add behavior of the FSM
 		addBehaviour(fsm);
@@ -488,7 +506,74 @@ public class HarvesterCoordinatorAgent extends Agent {
 	 *            String to show
 	 */
 	private void showMessage(String str) {
-		System.out.println(getLocalName() + ": " + str);
+		if(debugging)
+			System.out.println(getLocalName() + ": " + str);
 	}
+	
+	/*************************************************************************/
+	
+	  /**
+	   * 
+	   * STATE_6
+	   * Waiting for new garbages from the CoordinatorAgent.
+	   * 
+	   * @author Marc Bolaños
+	   *
+	   */
+		protected class ReceiveNewGarbages extends SimpleBehaviour {
+			
+			public ReceiveNewGarbages(Agent a)
+			{
+				super(a);
+			}
+
+			@Override
+			public void action() {
+				
+				showMessage("STATE_6");
+				showMessage("Waiting for new garbage positions from CoordinatorAgent.");
+
+				boolean okDisc = false;
+				while(!okDisc){
+					ACLMessage msg = messagesQueue.getMessage();
+					
+					try {
+						ArrayList contentRebut = (ArrayList)msg.getContentObject();
+				        if(msg.getSender().equals(coordinatorAgent)) {
+				        	for(int i = 0; i < contentRebut.size(); i++){
+				        		auctionGarbages.add((ArrayList)contentRebut.get(i));
+				        		showMessage("------------------------");
+				        		showMessage("New garbage found!");
+				        		showMessage("Row: " + (int)((ArrayList)contentRebut.get(i)).get(0));
+				        		showMessage("Column: " + (int)((ArrayList)contentRebut.get(i)).get(1));
+				        		showMessage("------------------------");
+				        	}
+				        	okDisc = true;
+				        	showMessage("New garbages from " + msg.getSender().getLocalName() + " received.");
+				        } else {
+				        	messagesQueue.add(msg);
+				        }
+					}catch (Exception e){
+						messagesQueue.add(msg);
+					}
+				}
+				
+		        messagesQueue.endRetrieval();
+		        
+			}
+
+			@Override
+			public boolean done() {
+				return true;
+			}
+			
+			public int onEnd(){
+				showMessage("STATE_6 return 0");
+				return 0;
+		    }
+		}
+
+
+	  /*************************************************************************/
 
 }

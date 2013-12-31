@@ -32,6 +32,9 @@ import jade.lang.acl.UnreadableException;
  *	Harvester agents class.
  */
 public class HarvesterAgent extends Agent {
+	
+	// Indicates if we want to show the debugging messages
+	private boolean debugging = false;
 
 	private AuxInfo mapInfo;
 
@@ -49,7 +52,8 @@ public class HarvesterAgent extends Agent {
 	   * @param str String to show
 	   */
 	private void showMessage(String str) {
-		System.out.println(getLocalName() + ": " + str);
+		if(debugging)
+			System.out.println(getLocalName() + ": " + str);
 	}
 	
 	protected void setup(){

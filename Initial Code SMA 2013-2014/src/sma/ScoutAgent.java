@@ -29,6 +29,9 @@ import sma.ontology.InfoAgent;
 import sma.ontology.InfoGame;
 
 public class ScoutAgent extends Agent {
+	
+	// Indicates if we want to show the debugging messages
+	private boolean debugging = false;
 
 	private AID scoutCoordinatorAgent;
 	// array storing the not handled messages
@@ -44,7 +47,8 @@ public class ScoutAgent extends Agent {
 	   * @param str String to show
 	   */
 	private void showMessage(String str) {
-		System.out.println(getLocalName() + ": " + str);
+		if(debugging)
+			System.out.println(getLocalName() + ": " + str);
 	}
 	
 	protected void setup(){
@@ -88,9 +92,11 @@ public class ScoutAgent extends Agent {
 			}
 	    };
 	    fsm.registerFirstState(new InitialRecieve(this, scoutCoordinatorAgent), "STATE_1");
-	    fsm.registerState(new RecieveGameInfo(this,scoutCoordinatorAgent), "STATE_2");
+	    fsm.registerState(new SendGarbagePositions(this, scoutCoordinatorAgent), "STATE_2");
+	    fsm.registerState(new RecieveGameInfo(this, scoutCoordinatorAgent), "STATE_3");
 	    fsm.registerDefaultTransition("STATE_1", "STATE_2");
-	    fsm.registerDefaultTransition("STATE_2", "STATE_2");
+	    fsm.registerDefaultTransition("STATE_2", "STATE_3");
+	    fsm.registerDefaultTransition("STATE_3", "STATE_2");
 	    addBehaviour(fsm);
 	}	 
 	
@@ -197,6 +203,57 @@ public class ScoutAgent extends Agent {
 	    }
 	}
 	
+	
+	/**
+	 * 
+	 * @author Marc Bolaños Solà
+	 * Looks for any position around it with garbage and sends them to the ScoutsCoordinator.
+	 */
+	protected class SendGarbagePositions extends SimpleBehaviour
+	{
+		private AID receptor;
+		private Agent a;
+		
+		public SendGarbagePositions (Agent a, AID r)
+		{
+			super(a);
+			this.receptor = r;
+		}
+
+		@Override
+		public void action() {
+			
+			// Finds garbage positions
+			ArrayList garbageDiscoveries = checkScoutDiscoveries();
+			
+			try {
+				// Make the request
+				ACLMessage request = new ACLMessage(ACLMessage.INFORM);
+				request.clearAllReceiver();
+				request.setContentObject(garbageDiscoveries);
+				request.addReceiver(receptor);
+			    
+			    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+			    send(request);
+			    showMessage("Connection STATE_2 between scout->scout coordinator: OK");
+			} catch (IOException e) {
+				showMessage("Problem found when sending new discoveries.");
+			}
+		    
+		}
+
+		@Override
+		public boolean done() {
+			return true;
+		}
+		
+		public int onEnd(){
+	    	showMessage("STATE_2 return OK");
+	    	return 0;
+	    }
+	}
+	
+	
 	/**
 	 * 
 	 * @author David Sanchez Pinsach 
@@ -220,7 +277,7 @@ public class ScoutAgent extends Agent {
 			request.clearAllReceiver();
 		    request.addReceiver(receptor);
 		    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
-		    showMessage("Connection STATE_2 between scout->scout coordinator: OK");
+		    showMessage("Connection STATE_3 between scout->scout coordinator: OK");
 		   
 		    
 		   /*Reception of game info
@@ -286,7 +343,7 @@ public class ScoutAgent extends Agent {
 		}
 		
 		public int onEnd(){
-	    	showMessage("STATE_2 return OK");
+	    	showMessage("STATE_3 return OK");
 	    	return 0;
 	    }
 	}
@@ -337,4 +394,60 @@ public class ScoutAgent extends Agent {
 		
 		return newPosition;
 	}
+	
+	/**
+	 * Checks if any of the surrounding buildings there is any unit of garbage.
+	 * 
+	 * @return ArrayList with the information about the garbage found with the following format 
+	 * 					for each garbage cell (ArrayList):
+	 * 						- int row in the map
+	 * 						- int column in the map
+	 * 						- Cell datatype storing information about the content of the cell.
+	 */
+	private ArrayList checkScoutDiscoveries(){
+		showMessage("Checking New Discoveries...");
+		ArrayList garbageFound = new ArrayList();
+		
+		Cell a = auxInfo.getAgentCell(this.getAID());
+		
+		Cell b; // cell possibly with garbage
+		Cell[][] map = auxInfo.getMap();
+		for (int i = 0; i < auxInfo.getMapRows(); i++){
+			for (int j = 0; j < auxInfo.getMapColumns(); j++){
+				b = map[i][j];
+				try {
+					if(b.getCellType() == Cell.BUILDING && b.getGarbageUnits() > 0){
+						int x=a.getRow(); int y=a.getColumn();
+						int xb=b.getRow(); int yb=b.getColumn();
+						if (x>0){
+							if ((xb==x-1) && (yb==y)) {garbageFound.add(createGarbage(xb, yb, b));}// remove.add(b);}
+							if ((y>0) && (xb==x-1) && (yb==y-1)) {garbageFound.add(createGarbage(xb, yb, b));}// remove.add(b);} 
+							if ((y<auxInfo.getMap()[x].length-1) && (xb==x-1) && (yb==y+1)) {garbageFound.add(createGarbage(xb, yb, b));}// remove.add(b);}
+						}
+						if (x<auxInfo.getMap().length-1){
+							if ((xb==x+1) && (yb==y)) {garbageFound.add(createGarbage(xb, yb, b));}// remove.add(b);}
+							if ((y>0) && (xb==x+1) && (yb==y-1)) {garbageFound.add(createGarbage(xb, yb, b));}// remove.add(b);}
+							if ((y<auxInfo.getMap()[x].length-1) && (xb==x+1) && (yb==y+1)) {garbageFound.add(createGarbage(xb, yb, b));}// remove.add(b);}
+						}
+						if ((y>0) && (xb==x) && (yb==y-1)) {garbageFound.add(createGarbage(xb, yb, b));}// remove.add(b);}
+						if ((y<auxInfo.getMap()[x].length-1) && (xb==x) && (yb==y+1)) {garbageFound.add(createGarbage(xb, yb, b));}// remove.add(b);}
+					}
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+			}
+		}
+				
+		//for (Cell r : remove)  game.getBuildingsGarbage().remove(r);
+		return garbageFound;
+	}
+	
+	private ArrayList createGarbage(int x, int y, Cell b){
+		ArrayList garbage = new ArrayList();
+		garbage.add(x);
+		garbage.add(y);
+		garbage.add(b);
+		return garbage;
+	}
+	
 }

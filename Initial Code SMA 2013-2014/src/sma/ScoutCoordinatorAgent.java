@@ -1,5 +1,6 @@
 package sma;
 
+import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.Random;
 
@@ -19,11 +20,15 @@ import jade.lang.acl.UnreadableException;
 
 public class ScoutCoordinatorAgent extends Agent{
 	
+	// Indicates if we want to show the debugging messages
+	private boolean debugging = false;
+	
 	private AuxInfo info;
 
 	private AID coordinatorAgent;
 	
 	private LinkedList<Cell> movementList = new LinkedList<Cell>();
+	private ArrayList discoveriesList = new ArrayList();
 	
 	// array storing the not handled messages
 	private MessagesList messagesQueue = new MessagesList(this);
@@ -35,7 +40,8 @@ public class ScoutCoordinatorAgent extends Agent{
 	   * @param str String to show
 	   */
 	private void showMessage(String str) {
-		System.out.println(getLocalName() + ": " + str);
+		if(debugging)
+			System.out.println(getLocalName() + ": " + str);
 	}
 	
 	protected void setup(){
@@ -98,16 +104,25 @@ public class ScoutCoordinatorAgent extends Agent{
 	    fsm.registerState(new SendMovement(this), "STATE_4");
 	    // Behaviour to send game info to all scout 
 	    fsm.registerState(new SendGameInfo(this), "STATE_5");
+	    // Behaviour to receive new discoveries from Scouts
+	    fsm.registerState(new ReceiveNewDiscoveries(this), "STATE_6");
+	    // Behaviour to send new discoveries to CoordinatorAgent
+	    fsm.registerState(new SendNewDiscoveries(this), "STATE_7");
 	    
 	    // FSM transitions
 	    fsm.registerTransition("STATE_1", "STATE_2", 1);
 	    fsm.registerTransition("STATE_1", "STATE_5", 2);
-	    fsm.registerDefaultTransition("STATE_2", "STATE_3");
+	    //fsm.registerDefaultTransition("STATE_2", "STATE_3");
+	    fsm.registerDefaultTransition("STATE_2", "STATE_6");
 	    fsm.registerTransition("STATE_3", "STATE_3", 1);
 	    fsm.registerTransition("STATE_3", "STATE_4", 2);
 	    fsm.registerTransition("STATE_4", "STATE_4", 1);
 	    fsm.registerTransition("STATE_4", "STATE_1", 2);
-	    fsm.registerDefaultTransition("STATE_5", "STATE_3");
+	    //fsm.registerDefaultTransition("STATE_5", "STATE_3");
+	    fsm.registerDefaultTransition("STATE_5", "STATE_6");
+	    fsm.registerTransition("STATE_6", "STATE_6", 1);
+	    fsm.registerTransition("STATE_6", "STATE_7", 2);
+	    fsm.registerDefaultTransition("STATE_7", "STATE_3");
 	    
 	    addBehaviour(fsm);
 	    
@@ -188,7 +203,6 @@ public class ScoutCoordinatorAgent extends Agent{
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -256,7 +270,6 @@ public class ScoutCoordinatorAgent extends Agent{
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -326,7 +339,6 @@ public class ScoutCoordinatorAgent extends Agent{
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -379,7 +391,6 @@ public class ScoutCoordinatorAgent extends Agent{
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -432,7 +443,6 @@ public class ScoutCoordinatorAgent extends Agent{
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
@@ -441,4 +451,128 @@ public class ScoutCoordinatorAgent extends Agent{
 	    	return 0;
 	    }
 	}
+	
+	
+	/**
+	 * 
+	 * @author Marc Bolaños Solà
+	 * 
+	 * Class that implements behavior of receiving new discoveries from scouts
+	 */
+	protected class ReceiveNewDiscoveries extends SimpleBehaviour
+	{
+		// Counter for knowing how many discoveries have been received
+		private int countDiscoveriesReceived = 0;
+		
+		public ReceiveNewDiscoveries (Agent a)
+		{
+			super(a);
+		}
+		
+		@Override
+		public void action() {
+			/*
+			 * Reception of the new discoveries ArrayList
+			 */
+			showMessage("STATE_6: waiting for new discoveries from Scouts.");
+			
+		    boolean okInfo = false;
+		    while(!okInfo)
+		    {
+		    	ACLMessage reply = messagesQueue.getMessage();
+		    	if (reply != null)
+		    	{
+		    		switch (reply.getPerformative())
+		    		{
+			    		case ACLMessage.AGREE:
+			    			showMessage("Recieved AGREE from "+reply.getSender());
+			    			break;
+			    		case ACLMessage.INFORM:
+							try {
+								ArrayList discoveries = (ArrayList) reply.getContentObject();	// Getting object with ArrayList of discoveries
+								for(int i = 0; i < discoveries.size(); i++){
+									discoveriesList.add((ArrayList)discoveries.get(i));
+								}
+								okInfo = true;
+								countDiscoveriesReceived++;
+								showMessage("Recieved new discovery from "+reply.getSender());
+							} catch (Exception e) {
+								messagesQueue.add(reply);
+							}
+			    			break;
+			    		case ACLMessage.FAILURE:
+			    			System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: Performative was FAILURE");
+			    			break;
+			    		default:
+			    			// Unexpected messages received must be added to the queue.
+			    			messagesQueue.add(reply);
+			    			break;
+		    		}
+		    	}
+		    }
+		    messagesQueue.endRetrieval();
+		}
+
+		@Override
+		public boolean done() {
+			return true;
+		}
+		
+		public int onEnd(){
+			/* If we have not received all movements from all scouts, we return 1 so we will repeat the same behaviour(state)) */
+	    	if (countDiscoveriesReceived < info.getNumScouts())
+	    		return 1;
+	    	/* When we have recieved all the new discoveries, we return 2 so we will go to next state */
+	    	countDiscoveriesReceived = 0;
+	    	showMessage("STATE_6 return OK");
+	    	return 2;
+	    }
+	}
+	
+	/**
+	 * 
+	 * @author Marc Bolaños Solà
+	 * 
+	 * Class that implements behavior of sending all the new discoveries to the coordinator agent.
+	 */
+	protected class SendNewDiscoveries extends SimpleBehaviour
+	{	
+		
+		public SendNewDiscoveries (Agent a)
+		{
+			super(a);
+		}
+		
+		@Override
+		public void action() {
+			/* Send movement to Coordinator agent */
+			ACLMessage request = new ACLMessage(ACLMessage.INFORM);
+			request.clearAllReceiver();
+		    request.addReceiver(coordinatorAgent);
+		    request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+		    try 
+		    {
+		    	request.setContentObject(discoveriesList);
+		    	send(request);
+			    showMessage("Sending movement to "+coordinatorAgent);
+			    discoveriesList = new ArrayList();
+		    } catch (Exception e) {
+			    request.setPerformative(ACLMessage.FAILURE);
+			    e.printStackTrace();
+			}
+		    
+			
+		}
+
+		@Override
+		public boolean done() {
+			return true;
+		}
+		
+		public int onEnd(){
+	    	showMessage("STATE_7 return OK");
+	    	return 0;
+	    }
+	}
+	
 }
