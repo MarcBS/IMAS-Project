@@ -19,6 +19,9 @@ public class InfoAgent extends Object implements java.io.Serializable {
 	private AID aid;
 
 	private boolean[] garbageType = { false, false, false, false }; //(Glass, Plastic, Metal, Paper)
+	
+	/* List of garbage type units carrying by the Harvester */
+	private int[] garbageUnits = {0, 0, 0, 0}; //(Glass, Plastic, Metal, Paper)
 
 	private int maxUnits = 10;
 	private int units = 0;
@@ -127,6 +130,10 @@ public class InfoAgent extends Object implements java.io.Serializable {
 	 */
 	public InfoAgent(int agentType) throws Exception {
 		this.setAgentType(agentType);
+	}
+	
+	public int[] getGarbageUnits() {
+		return garbageUnits;
 	}
 
 } //endof class InfoAgent

@@ -13,6 +13,7 @@ import sma.HarvesterCoordinatorAgent.SendGameInfo;
 import sma.HarvesterCoordinatorAgent.SendMovement;
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
+import sma.ontology.InfoAgent;
 import sma.ontology.InfoGame;
 import jade.core.*;
 import jade.core.behaviours.FSMBehaviour;
@@ -348,42 +349,107 @@ public class HarvesterAgent extends Agent {
 	 * @throws IOException Error of sending message
 	 */
 	public Cell getRandomPosition(Cell[][] map, Cell actualPosition) throws IOException{
-		Cell newPosition = null;
+		Cell newPosition = null, positionToReturn = actualPosition;
 		boolean trobat = false;
 		showMessage("Checking random movement...");
 		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
 		int maxRows=0, maxColumns=0;
 		maxRows = mapInfo.getMapRows();
 		maxColumns = mapInfo.getMapColumns();
-		newPosition = actualPosition;
 		int [][] posibleMovements = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
 		List<int[]> intList = Arrays.asList(posibleMovements);
 		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
 
 		int [] list = null;
 		//Search a cell street
-		while(arrayList.size()!=0 && !trobat){
+		while(arrayList.size()!=0 && !trobat)
+		{
 			z= mapInfo.getRandomPosition(arrayList.size());
 			list = arrayList.remove(z);
 			
 			xi = list[0];
 			yi = list[1];
-			if(xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns){ //Check if the position it's in the range of the map
+			if(xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns)	//Check if the position it's in the range of the map
+			{ 
 				newPosition = map[xi][yi];
-				if(!newPosition.isThereAnAgent() && Cell.STREET == newPosition.getCellType() ){ //Check the limits of the map
-					try {
-						showMessage("Position before moving "+"["+x+","+y+"]");
-						newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
-					} catch (Exception e) {
-						showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+				if(Cell.STREET == newPosition.getCellType() )	//Check the limits of the map
+				{ 
+					 /* If there is a scout agent in front of */ 
+					if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT)
+					{
+						try {
+							showMessage("Position before moving "+"["+x+","+y+"]");
+							newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+							positionToReturn = newPosition;
+							//actualPosition.removeAgent(actualPosition.getAgent());
+						} catch (Exception e) {
+							showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+						}
+						trobat = true;
 					}
-					trobat = true;
+					 /* If there is a harvester agent in front of */
+					else if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.HARVESTER)
+					{
+						// TODO
+						InfoAgent infoagent = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent);
+						InfoAgent other_infoagent = newPosition.getAgent();
+						int garbageAmount = infoagent.getGarbageUnits()[InfoAgent.GLASS] + infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + infoagent.getGarbageUnits()[InfoAgent.METAL] + infoagent.getGarbageUnits()[InfoAgent.PAPER];
+						int other_garbageAmount = other_infoagent.getGarbageUnits()[InfoAgent.GLASS] + other_infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + other_infoagent.getGarbageUnits()[InfoAgent.METAL] + other_infoagent.getGarbageUnits()[InfoAgent.PAPER];
+						
+						/* The harvester carrying more garbage is the one that is going to move */
+						if (garbageAmount > other_garbageAmount)
+						{
+							try {
+								showMessage("Position before moving "+"["+x+","+y+"]");
+								newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+								positionToReturn = newPosition;
+								//actualPosition.removeAgent(actualPosition.getAgent());
+							} catch (Exception e) {
+								showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+							}
+							trobat = true;
+						}
+						
+						else if (garbageAmount < other_garbageAmount)
+						{
+							// Do nothing
+						}
+						
+						else	/* Random decision by ID in case of draw */
+						{
+							int h1 = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent).getAID().hashCode();
+							int h2 = newPosition.getAgent().getAID().hashCode();
+							if (h1 > h2)
+							{
+								try {
+									showMessage("Position before moving "+"["+x+","+y+"]");
+									newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+									positionToReturn = newPosition;
+									//actualPosition.removeAgent(actualPosition.getAgent());
+								} catch (Exception e) {
+									showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+								}
+								trobat = true;
+							}
+						}
+					}
+					 /* If there is not an agent */ 
+					else
+					{
+						try {
+							showMessage("Position before moving "+"["+x+","+y+"]");
+							newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+							positionToReturn = newPosition;
+							//actualPosition.removeAgent(actualPosition.getAgent());
+						} catch (Exception e) {
+							showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+						}
+						trobat = true;		
+					}
 				}
-			}else{
-				newPosition = actualPosition; //If you can move you return your same position
 			}
 		}
 		
-		return newPosition;
+		return positionToReturn;
 	}
 }
