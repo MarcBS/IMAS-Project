@@ -55,6 +55,15 @@ public class DelimitingZone implements Serializable{
 	}
 	
 	
+	public Point getBR(){
+		return BR;
+	}
+	
+	public Point getUL(){
+		return UL;
+	}
+	
+	
 	/**
 	 * Initializes the buildings list with the original map (this must only be executed when 
 	 * the delimiting zone is the complete map).

@@ -1,12 +1,23 @@
 package sma;
 
+import java.awt.Point;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Random;
+import java.util.Set;
 
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
 import sma.ontology.DelimitingZone;
+import sma.ontology.InfoAgent;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.FSMBehaviour;
@@ -238,6 +249,9 @@ public class ScoutCoordinatorAgent extends Agent{
 			// Get delimiting zones for all the scouts
 			ArrayList<DelimitingZone> zones = new ArrayList<DelimitingZone>();
 			zones = getDelimitingZones(zones, info.getScout_aids().size());
+			// Assigns the closest zone to each agent.
+			int[] orderZones = sortZones(zones, info.getAgentsInitialPosition(), info.getScout_aids());
+			
 			
 			/* Make a broadcast to all scouts agent sending the game info and movement*/
 			for (int i=0; i<info.getScout_aids().size(); i++)
@@ -259,7 +273,7 @@ public class ScoutCoordinatorAgent extends Agent{
 			    /* Make a broadcast to all scouts sending the assigned DelimitingZone*/
 			    //int mapSize = info.getMap().length;
 			    //Cell c = info.getCell(rnd.nextInt(mapSize), rnd.nextInt(mapSize));
-			    DelimitingZone dz = zones.get(i);
+			    DelimitingZone dz = zones.get(orderZones[i]);
 			    try {
 			    	request.setContentObject(dz);
 			    } catch (Exception e) {
@@ -606,6 +620,145 @@ public class ScoutCoordinatorAgent extends Agent{
 		}
 		
 		return zones;
+	}
+
+	/**
+	 * Assigns the closest DelimitingZone in "zones" to each scout defined by its AID in "scouts_aids"
+	 * and taking into account its position stored in "agentsInitialPosition".
+	 * 
+	 * @param zones
+	 * @param agentsInitialPosition
+	 * @param scout_aids
+	 * @return int[] sorted list with the id of each zone (position) for each AID in scouts_aids.
+	 */
+	public int[] sortZones(ArrayList<DelimitingZone> zones, HashMap<InfoAgent, Cell> agentsInitialPosition, List<AID> scout_aids) {
+
+		int[] orderZones = new int[zones.size()];
+		for(int i = 0; i < zones.size(); i++){
+			orderZones[i] = -1;
+		}
+		
+		// Matrix of distances between each agent (rows) and each zone (columns).
+		int[][] matDist = new int[scout_aids.size()][zones.size()];
+		
+		// For each agent
+		int count = 0;
+		for(AID a_id : scout_aids){
+			try {
+				
+				//InfoAgent a_info = new InfoAgent(InfoAgent.SCOUT, scout_aids.get(count));
+				//Cell a = agentsInitialPosition.get(a_info);
+				
+				// Looks for the current agent's position
+				Cell a = null;
+				boolean found = false;
+				Set<Entry<InfoAgent, Cell>> set = agentsInitialPosition.entrySet();
+				Iterator<Entry<InfoAgent, Cell>> iter = set.iterator();
+				while(iter.hasNext() && !found){
+					Entry<InfoAgent, Cell> entry = iter.next();
+					if(entry.getKey().getAID().equals( scout_aids.get(count) )){
+						a = entry.getValue();
+						found = true;
+					}
+				}
+				
+				// Checks for each agent the distance to each DelimitingZone
+				for(int i = 0; i < zones.size(); i++){
+					Point BR = zones.get(i).getBR();
+					Point UL = zones.get(i).getUL();
+					int y = a.getRow();
+					int x = a.getColumn();
+					
+					if(y <= BR.y && y >= UL.y && x <= BR.x && x >= UL.x){
+						// is inside the zone
+						matDist[count][i] = 0;
+					} else if(y <= BR.y && y >= UL.y){
+						if(x > BR.x){
+							// is at the right
+							matDist[count][i] = x - BR.x;
+						} else if(x < UL.x){
+							// is at the left
+							matDist[count][i] = UL.x - x;
+						}
+					} else if(x <= BR.x && x >= UL.x){
+						if(y < UL.y){
+							// is at the top
+							matDist[count][i] = UL.y - y;
+						} else if(y > BR.y){
+							// is at the bottom
+							matDist[count][i] = y - BR.y;
+						}
+					} else {
+						// is in diagonal
+						if(y < UL.y && x > BR.x){
+							// top right
+							matDist[count][i] = (UL.y - y) + (x - BR.x);
+						} else if(y < UL.y && x < UL.x){
+							// top left
+							matDist[count][i] = (UL.y - y) + (UL.x - x);
+						} else if(y > BR.y && x > BR.x){
+							// bottom right
+							matDist[count][i] = (y - BR.y) + (x - BR.x);
+						} else if(y > BR.y && x < UL.x){
+							// bottom left
+							matDist[count][i] = (y - BR.y) + (UL.x - x);
+						}
+					}
+				} // end for
+				
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+
+			count++;
+		} // end for
+		
+		
+		// Now we select the best zone for each agent
+		for(int i = 0; i < zones.size(); i++){
+			// gets the column (zone) values
+			double[] distsZone = new double[zones.size()];
+			for(int j = 0; j < zones.size(); j++){
+				distsZone[j] = (double)matDist[j][i];
+			}
+			
+			// sorts the distances
+			int[] orderedIDs = getIndicesInOrder((double[])distsZone);
+			boolean found = false;
+			int j = zones.size()-1;
+			while(!found){
+				if(orderZones[orderedIDs[j]] == -1){
+					// if the current agent has not been assigned to any zones yet
+					orderZones[orderedIDs[j]] = i;
+					found = true;
+				}
+				j--;
+			}
+		}
+		
+		return orderZones;
+	}
+	
+	public static int[] getIndicesInOrder(double[] array) {
+	    Map<Integer, Double> map = new HashMap<Integer, Double>(array.length);
+	    for (int i = 0; i < array.length; i++)
+	        map.put(i, array[i]);
+
+	    List<Entry<Integer, Double>> l = 
+	                           new ArrayList<Entry<Integer, Double>>(map.entrySet());
+
+	    Collections.sort(l, new Comparator<Entry<?, Double>>() {
+	            @Override
+	            public int compare(Entry<?, Double> e1, Entry<?, Double> e2) {
+	                return e2.getValue().compareTo(e1.getValue());
+	            }
+	        });
+
+	    int[] result = new int[array.length];
+	    for (int i = 0; i < result.length; i++)
+	        result[i] = l.get(i).getKey();
+
+	    return result;
 	}
 	
 }
