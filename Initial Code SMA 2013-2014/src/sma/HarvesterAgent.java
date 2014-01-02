@@ -11,6 +11,7 @@ import sma.HarvesterCoordinatorAgent.ReceiveMovement;
 import sma.HarvesterCoordinatorAgent.RequestGameInfo;
 import sma.HarvesterCoordinatorAgent.SendGameInfo;
 import sma.HarvesterCoordinatorAgent.SendMovement;
+import sma.ontology.AuxGarbage;
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
 import sma.ontology.InfoAgent;
@@ -35,7 +36,7 @@ import jade.lang.acl.UnreadableException;
 public class HarvesterAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = false;
+	private boolean debugging = true;
 
 	private AuxInfo mapInfo;
 
@@ -110,10 +111,13 @@ public class HarvesterAgent extends Agent {
 	 		fsm.registerFirstState(new InitialRequest(this, harvesterCoordinatorAgent), "STATE_1");
 	 		// Behaviour to request the game info.
 	 		fsm.registerState(new RequestGameInfo(this, harvesterCoordinatorAgent), "STATE_2");
+	 		// Behaviour to perform a FPSB auction
+	 		fsm.registerState(new FPSBAuction(this), "STATE_3");
 
 	 		// FSM transitions
 	 		fsm.registerDefaultTransition("STATE_1", "STATE_2");
-	 		fsm.registerDefaultTransition("STATE_2", "STATE_2");
+	 		fsm.registerDefaultTransition("STATE_2", "STATE_3");
+	 		fsm.registerDefaultTransition("STATE_3", "STATE_2");
 
 	 		// Add behavior of the FSM
 	 		addBehaviour(fsm);
@@ -313,6 +317,8 @@ public class HarvesterAgent extends Agent {
 									System.err.println(getLocalName()
 												+ " Recieved game info unsucceeded. Reason: "
 												+ e.getMessage());
+								} catch (NullPointerException e){
+									// empty informaion sent from coord (auction)
 								}
 						break;
 						
@@ -332,6 +338,7 @@ public class HarvesterAgent extends Agent {
 		}
 
 		public boolean done() {
+			showMessage("STATE_2 return OK");
 			return true;
 		}
 
@@ -341,6 +348,162 @@ public class HarvesterAgent extends Agent {
 			return 0;
 		}
 	}
+	
+	
+	protected class FPSBAuction extends SimpleBehaviour{
+
+		public FPSBAuction(Agent a){
+			super(a);
+		}
+		@Override
+		public void action() {
+			showMessage("STATE_3");
+			boolean end = false;
+			// Receive info (adapted from STATE 2)
+			ACLMessage originalInfo = null;
+			AuxGarbage auctionInfo = null;
+			boolean okInfo = false;
+			
+			while (!end && !okInfo) {
+				ACLMessage reply = messagesQueue.getMessage();
+				if (reply != null) {
+					switch (reply.getPerformative()) {
+						case ACLMessage.AGREE:
+								showMessage("Recieved AGREE from " + reply.getSender());
+						break;
+						
+						case ACLMessage.INFORM:
+								try {
+									
+									showMessage("Receiving garbage info from "+ reply.getSender());
+									
+									auctionInfo = (AuxGarbage) reply.getContentObject();
+									
+									if(auctionInfo == null){
+										showMessage("There is no garbage!");
+										end = true;
+										break;
+									}
+									showMessage("Receiving garbage info from "+ reply.getSender());
+									
+									showMessage("Information: " + auctionInfo.getInfo().getGarbageString());
+									okInfo = true;
+									originalInfo = reply;
+								} catch (UnreadableException e) {
+									messagesQueue.add(reply);
+									System.err.println(getLocalName()
+												+ " Recieved auction info unsucceeded. Reason: "
+												+ e.getMessage());
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
+						break;
+						
+						case ACLMessage.FAILURE:
+								System.err.println(getLocalName()
+											+ " Recieved auction info unsucceeded. Reason: Performative was FAILURE");
+						break;
+						
+						default:
+							// Unexpected messages received must be added to the queue.
+							messagesQueue.add(reply);
+						break;
+					}
+				}
+			}
+			messagesQueue.endRetrieval();
+			
+			if(!end){
+			// Evaluate the auction
+			
+			AID agent_aid = this.myAgent.getAID();
+			Cell c = mapInfo.getAgentCell(agent_aid);
+			float distance = Math.abs(c.getColumn()-auctionInfo.getColumn()) + Math.abs(c.getRow()-auctionInfo.getRow()); 
+			float capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
+			
+			float bid = -1;
+			try {
+				float tmp = capacity - auctionInfo.getInfo().getGarbageUnits();
+				if(tmp == 0){ tmp = 1;}
+				else{tmp = 1/tmp;}
+				bid = 1/distance + tmp;
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+			// Send the bid
+			
+			ACLMessage reply2 = originalInfo.createReply();
+  	      	reply2.setPerformative(ACLMessage.INFORM);
+  	      	try {
+  	      		reply2.setContentObject(bid); //Return the bid to the Harvester coordinator agent
+  	      	} catch (Exception e1) {
+  	      		reply2.setPerformative(ACLMessage.FAILURE);
+  	      		System.err.println(e1.toString());
+  	      	}
+  	      	send(reply2);
+			showMessage("Sending the bid to "+originalInfo.getSender());
+			
+			// Receive the winner
+			
+			okInfo = false;
+			
+			while (!okInfo) {
+				ACLMessage reply = messagesQueue.getMessage();
+				if (reply != null) {
+					switch (reply.getPerformative()) {
+						case ACLMessage.AGREE:
+								showMessage("Recieved AGREE from " + reply.getSender());
+						break;
+						
+						case ACLMessage.INFORM:
+								try {
+									AID winner = (AID) reply.getContentObject();
+									
+									showMessage("Receiving auction winner from "+ reply.getSender());
+									
+									showMessage("Winner: " + winner);
+									// update the objective position
+									if(agent_aid.equals(winner)){
+										objectivePosition = auctionInfo.getInfo();
+										showMessage("////////////////////Objective position updated!!");
+									}
+									okInfo = true;
+									originalInfo = reply;
+								} catch (UnreadableException e) {
+									messagesQueue.add(reply);
+									System.err.println(getLocalName()
+												+ " Recieved game info unsucceeded. Reason: "
+												+ e.getMessage());
+								} catch (Exception e) {
+									e.printStackTrace();
+								}
+						break;
+						
+						case ACLMessage.FAILURE:
+								System.err.println(getLocalName()
+											+ " Recieved game info unsucceeded. Reason: Performative was FAILURE");
+						break;
+						
+						default:
+							// Unexpected messages received must be added to the queue.
+							messagesQueue.add(reply);
+						break;
+					}
+				}
+			}
+			messagesQueue.endRetrieval();
+			}
+		}
+
+		@Override
+		public boolean done() {
+			showMessage("STATE_3 return OK");
+			return true;
+		}
+		
+	}
+	
 	
 	/**
 	 * Method to send a movement (A cell)

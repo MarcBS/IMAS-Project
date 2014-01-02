@@ -134,13 +134,14 @@ public class HarvesterCoordinatorAgent extends Agent {
 		fsm.registerTransition("STATE_3", "STATE_3", 1);
 		fsm.registerTransition("STATE_3", "STATE_4", 2);
 		fsm.registerTransition("STATE_4", "STATE_4", 1);
-		fsm.registerTransition("STATE_4", "STATE_1", 2);
+		//fsm.registerTransition("STATE_4", "STATE_1", 2);
+		fsm.registerTransition("STATE_4", "STATE_7", 2);
 		//fsm.registerDefaultTransition("STATE_5", "STATE_3");
 		
 		fsm.registerDefaultTransition("STATE_5", "STATE_6");
 		fsm.registerDefaultTransition("STATE_2", "STATE_6");
-		fsm.registerDefaultTransition("STATE_6", "STATE_7");
-		fsm.registerDefaultTransition("STATE_7", "STATE_3");
+		fsm.registerDefaultTransition("STATE_6", "STATE_3");
+		fsm.registerDefaultTransition("STATE_7", "STATE_1");
 
 		// Add behavior of the FSM
 		addBehaviour(fsm);
@@ -589,110 +590,130 @@ public class HarvesterCoordinatorAgent extends Agent {
 		}
 		@Override
 		public void action() {
-			AuxGarbage auctionItem = auctionGarbages.get(0);
 			showMessage("STATE_7");
-			showMessage("Performing an auction");
-			
-			// Send information
-			for (int i = 0; i < mapInfo.getHarvesters_aids().size(); i++) { // adapted from STATE 5
-				/* Sending game info */
-				ACLMessage request = new ACLMessage(ACLMessage.INFORM);
-				request.clearAllReceiver();
-				request.addReceiver(mapInfo.getHarvesters_aids().get(i));
-				request.setProtocol(InteractionProtocol.FIPA_REQUEST);
-				try {
-					request.setContentObject(auctionItem);
-				} catch (Exception e) {
-					request.setPerformative(ACLMessage.FAILURE);
-					e.printStackTrace();
-				}
-				send(request);
-				showMessage("Sending auction info to "
-						+ mapInfo.getHarvesters_aids().get(i));
-			}
-			
-			// Wait for bids (all the harvesters must bid)
-			
-			int bidCounter = 0;
-			ArrayList<Tuple> bids = new ArrayList<Tuple>(); 
-			
-			while( bidCounter < mapInfo.getHarvesters_aids().size()){ // adapted from STATE 3
+			if(auctionGarbages.size() > 0){
+				AuxGarbage auctionItem = auctionGarbages.get(0);
 				
-				boolean okInfo = false;
-				while (!okInfo) {
-					ACLMessage reply = messagesQueue.getMessage();
-					if (reply != null) {
-						switch (reply.getPerformative()) {
-						case ACLMessage.AGREE:
-							showMessage("Recieved AGREE from " + reply.getSender());
-							break;
-						case ACLMessage.INFORM:
-							if(reply.getSender().equals(coordinatorAgent)){
-								messagesQueue.add(reply);
-							} else{
-								try {
-									Float bid = (Float) reply.getContentObject(); 
-									showMessage("Received bid from harvester "+reply.getSender()+" : "+bid);
-									bids.add(new Tuple(reply.getSender(), bid));
-									okInfo = true;
-									bidCounter++;
-									
-								} catch (UnreadableException e) {
+				showMessage("Performing an auction");
+				
+				// Send information
+				for (int i = 0; i < mapInfo.getHarvesters_aids().size(); i++) { // adapted from STATE 5
+					/* Sending game info */
+					ACLMessage request = new ACLMessage(ACLMessage.INFORM);
+					request.clearAllReceiver();
+					request.addReceiver(mapInfo.getHarvesters_aids().get(i));
+					request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+					try {
+						request.setContentObject(auctionItem);
+					} catch (Exception e) {
+						request.setPerformative(ACLMessage.FAILURE);
+						e.printStackTrace();
+					}
+					send(request);
+					showMessage("Sending auction info to "
+							+ mapInfo.getHarvesters_aids().get(i));
+				}
+				
+				// Wait for bids (all the harvesters must bid)
+				
+				int bidCounter = 0;
+				ArrayList<Tuple> bids = new ArrayList<Tuple>(); 
+				
+				while( bidCounter < mapInfo.getHarvesters_aids().size()){ // adapted from STATE 3
+					
+					boolean okInfo = false;
+					while (!okInfo) {
+						ACLMessage reply = messagesQueue.getMessage();
+						if (reply != null) {
+							switch (reply.getPerformative()) {
+							case ACLMessage.AGREE:
+								showMessage("Recieved AGREE from " + reply.getSender());
+								break;
+							case ACLMessage.INFORM:
+								if(reply.getSender().equals(coordinatorAgent)){
 									messagesQueue.add(reply);
-									System.err
-											.println(getLocalName()
-													+ " Recieved bid unsucceeded. Reason: "
-													+ e.getMessage());
+								} else{
+									try {
+										Float bid = (Float) reply.getContentObject(); 
+										showMessage("Received bid from harvester "+reply.getSender()+" : "+bid);
+										bids.add(new Tuple(reply.getSender(), bid));
+										okInfo = true;
+										bidCounter++;
+										
+									} catch (UnreadableException e) {
+										messagesQueue.add(reply);
+										System.err
+												.println(getLocalName()
+														+ " Recieved bid unsucceeded. Reason: "
+														+ e.getMessage());
+									}
 								}
+								
+								break;
+							case ACLMessage.FAILURE:
+								System.err
+										.println(getLocalName()
+												+ " Recieved bid unsucceeded. Reason: Performative was FAILURE");
+								break;
+							default:
+								// Unexpected messages received must be added to the queue.
+								//showMessage("Doing defautl state 3....");
+								messagesQueue.add(reply);
+								break;
 							}
-							
-							break;
-						case ACLMessage.FAILURE:
-							System.err
-									.println(getLocalName()
-											+ " Recieved bid unsucceeded. Reason: Performative was FAILURE");
-							break;
-						default:
-							// Unexpected messages received must be added to the queue.
-							//showMessage("Doing defautl state 3....");
-							messagesQueue.add(reply);
-							break;
 						}
 					}
+					
+					
 				}
 				
+				messagesQueue.endRetrieval();
 				
-			}
-			
-			messagesQueue.endRetrieval();
-			
-			// get the winner
-			float bestBid = -1;
-			AID winnerAgent = null;
-			for(Tuple t : bids){
-				if((float)t.get(1) > bestBid){ winnerAgent = (AID) t.get(0); bestBid = (float) t.get(1);}
-			}
-			
-			showMessage("The winner is: " + winnerAgent + " with a bid of " + bestBid);
-			// broadcast the winner
-			
-			for (int i = 0; i < mapInfo.getHarvesters_aids().size(); i++) { // adapted from STATE 5
-				/* Sending game info */
-				ACLMessage request = new ACLMessage(ACLMessage.INFORM);
-				request.clearAllReceiver();
-				request.addReceiver(mapInfo.getHarvesters_aids().get(i));
-				request.setProtocol(InteractionProtocol.FIPA_REQUEST);
-				try {
-					request.setContentObject(winnerAgent);
-				} catch (Exception e) {
-					request.setPerformative(ACLMessage.FAILURE);
-					e.printStackTrace();
+				// get the winner
+				float bestBid = -1;
+				AID winnerAgent = null;
+				for(Tuple t : bids){
+					if((float)t.get(1) > bestBid){ winnerAgent = (AID) t.get(0); bestBid = (float) t.get(1);}
 				}
-				send(request);
-				showMessage("Sending auction info to "
-						+ mapInfo.getHarvesters_aids().get(i));
+				
+				showMessage("The winner is: " + winnerAgent + " with a bid of " + bestBid);
+				// broadcast the winner
+				
+				for (int i = 0; i < mapInfo.getHarvesters_aids().size(); i++) { // adapted from STATE 5
+					/* Sending game info */
+					ACLMessage request = new ACLMessage(ACLMessage.INFORM);
+					request.clearAllReceiver();
+					request.addReceiver(mapInfo.getHarvesters_aids().get(i));
+					request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+					try {
+						request.setContentObject(winnerAgent);
+					} catch (Exception e) {
+						request.setPerformative(ACLMessage.FAILURE);
+						e.printStackTrace();
+					}
+					send(request);
+					showMessage("Sending auction info to "
+							+ mapInfo.getHarvesters_aids().get(i));
+				}
+			} else{
+				showMessage("No Garbage found, sending null information");
+				for (int i = 0; i < mapInfo.getHarvesters_aids().size(); i++) { // adapted from STATE 5
+					/* Sending game info */
+					ACLMessage request = new ACLMessage(ACLMessage.INFORM);
+					request.clearAllReceiver();
+					request.addReceiver(mapInfo.getHarvesters_aids().get(i));
+					request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+					try {
+						request.setContentObject(null);
+					} catch (Exception e) {
+						request.setPerformative(ACLMessage.FAILURE);
+						e.printStackTrace();
+					}
+					send(request);
+					showMessage("Sending auction info to "
+							+ mapInfo.getHarvesters_aids().get(i));
+				}
 			}
-			
 		}
 
 		@Override
