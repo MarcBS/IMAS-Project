@@ -164,6 +164,8 @@ public class Cell implements Serializable {
 			throw new Exception("Repeated InfoAgent");
 
 		// if everything is OK, we add the new agent to the cell
+		if (this.agent != null)
+			System.err.println("There is an agent in this cell");
 		this.agent = newAgent;
 	}
 

@@ -238,18 +238,21 @@ public class CentralAgent extends Agent {
 		showMessage("Checking MOVEMENTS");
 		
 		ArrayList<Cell> mo_list = (ArrayList)cells;
-		
+		ArrayList<Integer> row_cell_processed = new ArrayList<Integer>();
+		ArrayList<Integer> col_cell_processed = new ArrayList<Integer>();
+		ArrayList<Cell> newAgentPos = new ArrayList<Cell>();
+		ArrayList<Cell> oldAgentPos = new ArrayList<Cell>();
+		ArrayList<InfoAgent> old = new ArrayList<InfoAgent>();
+		int k = 0;
 		
 		for(Cell c : mo_list){
 			if(!c.isThereAnAgent()){ continue;}
-		
+	
 			String agent_id = c.getAgent().getAID().getName();
 			int pos_col = c.getColumn();
 			int pos_row = c.getRow();
 			// find the current Cell of the agent
 			Cell[][] map = game.getInfo().getMap();
-			Cell oldAgentPos = null;
-			Cell newAgentPos = null;
 			//(int i = 0; i < map.length; i++){
 			int i = 0; int j = 0;boolean found = false;
 			while( i < map.length && !found){
@@ -258,7 +261,7 @@ public class CentralAgent extends Agent {
 					try{
 						if(map[i][j].getAgent().getAID().getName().equals(agent_id)){
 							found = true;
-							oldAgentPos = map[i][j];
+							oldAgentPos.add(map[i][j]);
 						}
 					} catch(Exception e3){ }
 					j++;
@@ -267,12 +270,12 @@ public class CentralAgent extends Agent {
 			}
 			if(found){
 				// get the InfoAgent of this Cell
-				InfoAgent old = oldAgentPos.getAgent();
+				old.add(oldAgentPos.get(k).getAgent());
 	
 			
 				// set the InfoAgent to null
 				try {
-					oldAgentPos.removeAgent(old);
+					oldAgentPos.get(k).removeAgent(old.get(k));
 				} catch (Exception e1) {
 					
 					e1.printStackTrace();
@@ -285,40 +288,43 @@ public class CentralAgent extends Agent {
 						try{
 							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
 								found = true;
-								newAgentPos = map[i][j];
+								newAgentPos.add(map[i][j]);
 							}
 						}catch(Exception e){}
 						j++;
 					}
 					i++;
 				}
-				if(!newAgentPos.isThereAnAgent()){
-					try {
-						newAgentPos.addAgent(old);
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-					game.getInfo().setAgentCell(old, newAgentPos);
-				} else{ 
-					// collisions not implemented
-					System.err.println("There is an agent in this cell");
-					try {
-						oldAgentPos.addAgent(old);
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
-
-			
+				
 			} else{
 				System.err.println("Agent not found");
 			}
-
-
+			k++;
 		}
-
+		/* Up to this point, all the cells don't have any InfoAgent inside. In the following loop, we are gonna put the InfoAgents into new positions */
+		for (int i=0; i<k; i++)
+		{
+			/* If we have already put a InfoAgent in this cell in a previous movement already processed, then the Agent that wants to move to this cell is not allowed. */
+			if( !(row_cell_processed.contains(newAgentPos.get(i).getRow()) && col_cell_processed.contains(newAgentPos.get(i).getColumn())) ){
+				try {
+					newAgentPos.get(i).addAgent(old.get(i));
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				game.getInfo().setAgentCell(old.get(i), newAgentPos.get(i));
+				row_cell_processed.add(newAgentPos.get(i).getRow());
+				col_cell_processed.add(newAgentPos.get(i).getColumn());
+			} else{ 
+				//System.err.println("There is an agent in this cell");
+				try {
+					oldAgentPos.get(i).addAgent(old.get(i));
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}
 		showMessage("MOVEMENTS processed.");
 		movements_updated = true;
 		return true;
