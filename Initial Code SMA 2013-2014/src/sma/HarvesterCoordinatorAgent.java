@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.Random;
 
+import sma.ontology.AuxGarbage;
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
 import sma.ontology.InfoAgent;
@@ -50,7 +51,7 @@ public class HarvesterCoordinatorAgent extends Agent {
 	 *  	- int Column
 	 *  	- Cell with all information
 	 */
-	private ArrayList auctionGarbages = new ArrayList();
+	private ArrayList<AuxGarbage> auctionGarbages = new ArrayList<AuxGarbage>();
 
 	public HarvesterCoordinatorAgent() {
 	}
@@ -122,6 +123,9 @@ public class HarvesterCoordinatorAgent extends Agent {
 		fsm.registerState(new SendGameInfo(this), "STATE_5");
 		// Behaviour to receive all new garbage positions from Coordinator Agent
 		fsm.registerState(new ReceiveNewGarbages(this), "STATE_6");
+		// Behaviour to perform an auction to distribute the garbage
+		fsm.registerState(new PerformFPSBAuction(this), "STATE_7");
+		
 
 		// FSM transitions
 		fsm.registerTransition("STATE_1", "STATE_2", 1);
@@ -135,7 +139,8 @@ public class HarvesterCoordinatorAgent extends Agent {
 		
 		fsm.registerDefaultTransition("STATE_5", "STATE_6");
 		fsm.registerDefaultTransition("STATE_2", "STATE_6");
-		fsm.registerDefaultTransition("STATE_6", "STATE_3");
+		fsm.registerDefaultTransition("STATE_6", "STATE_7");
+		fsm.registerDefaultTransition("STATE_7", "STATE_3");
 
 		// Add behavior of the FSM
 		addBehaviour(fsm);
@@ -517,7 +522,7 @@ public class HarvesterCoordinatorAgent extends Agent {
 	   * STATE_6
 	   * Waiting for new garbages from the CoordinatorAgent.
 	   * 
-	   * @author Marc Bolaños
+	   * @author Marc Bolaï¿½os
 	   *
 	   */
 		protected class ReceiveNewGarbages extends SimpleBehaviour {
@@ -541,7 +546,8 @@ public class HarvesterCoordinatorAgent extends Agent {
 						ArrayList contentRebut = (ArrayList)msg.getContentObject();
 				        if(msg.getSender().equals(coordinatorAgent)) {
 				        	for(int i = 0; i < contentRebut.size(); i++){
-				        		auctionGarbages.add((ArrayList)contentRebut.get(i));
+				        		ArrayList tmp = (ArrayList)contentRebut.get(i);
+				        		auctionGarbages.add(new AuxGarbage((int)tmp.get(0), (int)tmp.get(1), (Cell)tmp.get(2)));
 				        		showMessage("------------------------");
 				        		showMessage("New garbage found!");
 				        		showMessage("Row: " + (int)((ArrayList)contentRebut.get(i)).get(0));
@@ -575,5 +581,141 @@ public class HarvesterCoordinatorAgent extends Agent {
 
 
 	  /*************************************************************************/
+		
+	protected class PerformFPSBAuction extends SimpleBehaviour{
+
+		public PerformFPSBAuction(Agent a){
+			super(a);
+		}
+		@Override
+		public void action() {
+			AuxGarbage auctionItem = auctionGarbages.get(0);
+			showMessage("STATE_7");
+			showMessage("Performing an auction");
+			
+			// Send information
+			for (int i = 0; i < mapInfo.getHarvesters_aids().size(); i++) { // adapted from STATE 5
+				/* Sending game info */
+				ACLMessage request = new ACLMessage(ACLMessage.INFORM);
+				request.clearAllReceiver();
+				request.addReceiver(mapInfo.getHarvesters_aids().get(i));
+				request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+				try {
+					request.setContentObject(auctionItem);
+				} catch (Exception e) {
+					request.setPerformative(ACLMessage.FAILURE);
+					e.printStackTrace();
+				}
+				send(request);
+				showMessage("Sending auction info to "
+						+ mapInfo.getHarvesters_aids().get(i));
+			}
+			
+			// Wait for bids (all the harvesters must bid)
+			
+			int bidCounter = 0;
+			ArrayList<Tuple> bids = new ArrayList<Tuple>(); 
+			
+			while( bidCounter < mapInfo.getHarvesters_aids().size()){ // adapted from STATE 3
+				
+				boolean okInfo = false;
+				while (!okInfo) {
+					ACLMessage reply = messagesQueue.getMessage();
+					if (reply != null) {
+						switch (reply.getPerformative()) {
+						case ACLMessage.AGREE:
+							showMessage("Recieved AGREE from " + reply.getSender());
+							break;
+						case ACLMessage.INFORM:
+							if(reply.getSender().equals(coordinatorAgent)){
+								messagesQueue.add(reply);
+							} else{
+								try {
+									Float bid = (Float) reply.getContentObject(); 
+									showMessage("Received bid from harvester "+reply.getSender()+" : "+bid);
+									bids.add(new Tuple(reply.getSender(), bid));
+									okInfo = true;
+									bidCounter++;
+									
+								} catch (UnreadableException e) {
+									messagesQueue.add(reply);
+									System.err
+											.println(getLocalName()
+													+ " Recieved bid unsucceeded. Reason: "
+													+ e.getMessage());
+								}
+							}
+							
+							break;
+						case ACLMessage.FAILURE:
+							System.err
+									.println(getLocalName()
+											+ " Recieved bid unsucceeded. Reason: Performative was FAILURE");
+							break;
+						default:
+							// Unexpected messages received must be added to the queue.
+							//showMessage("Doing defautl state 3....");
+							messagesQueue.add(reply);
+							break;
+						}
+					}
+				}
+				
+				
+			}
+			
+			messagesQueue.endRetrieval();
+			
+			// get the winner
+			float bestBid = -1;
+			AID winnerAgent = null;
+			for(Tuple t : bids){
+				if((float)t.get(1) > bestBid){ winnerAgent = (AID) t.get(0); bestBid = (float) t.get(1);}
+			}
+			
+			showMessage("The winner is: " + winnerAgent + " with a bid of " + bestBid);
+			// broadcast the winner
+			
+			for (int i = 0; i < mapInfo.getHarvesters_aids().size(); i++) { // adapted from STATE 5
+				/* Sending game info */
+				ACLMessage request = new ACLMessage(ACLMessage.INFORM);
+				request.clearAllReceiver();
+				request.addReceiver(mapInfo.getHarvesters_aids().get(i));
+				request.setProtocol(InteractionProtocol.FIPA_REQUEST);
+				try {
+					request.setContentObject(winnerAgent);
+				} catch (Exception e) {
+					request.setPerformative(ACLMessage.FAILURE);
+					e.printStackTrace();
+				}
+				send(request);
+				showMessage("Sending auction info to "
+						+ mapInfo.getHarvesters_aids().get(i));
+			}
+			
+		}
+
+		@Override
+		public boolean done() {
+			
+			return true;
+		}
+		
+	}
+	
+	private class Tuple{
+		private Object o1;
+		private Object o2;
+		public Tuple(Object o1, Object o2){
+			this.o1 = o1;
+			this.o2 = o2;
+		}
+		
+		public Object get(int i){
+			if(i == 0) return o1;
+			if(i == 1) return o2;
+			return null;
+		}
+	}
 
 }
