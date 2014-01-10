@@ -285,6 +285,7 @@ public class CentralAgent extends Agent {
 							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
 								found = true;
 								newAgentPos.add(map[i][j]);
+								k++;
 							}
 						}catch(Exception e){}
 						j++;
@@ -295,7 +296,7 @@ public class CentralAgent extends Agent {
 			} else{
 				System.err.println("Agent not found");
 			}
-			k++;
+	
 		}
 		/* Up to this point, all the cells don't have any InfoAgent inside. In the following loop, we are gonna put the InfoAgents into new positions */
 		for (int i=0; i<k; i++)
