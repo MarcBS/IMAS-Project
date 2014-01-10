@@ -10,7 +10,7 @@ import java.awt.event.WindowAdapter;
 import javax.swing.*; // For JPanel, etc.
 import java.awt.*;           // For Graphics, etc.
 import java.awt.geom.*;      // For Ellipse2D, etc.
-
+import java.util.List;
 import sma.ontology.*;
 
 /**
@@ -70,7 +70,7 @@ public class GraphicInterface extends JFrame {
   public GraphicInterface(InfoGame p) {
     try {
       jbInit();
-      this.showGameMap(p.getInfo().getMap());
+      this.showGameMap(p.getInfo().getMap(), p.getBuildingsGarbage());
     }
     catch (Exception exception) {
       exception.printStackTrace();
@@ -160,8 +160,8 @@ public class GraphicInterface extends JFrame {
    * @param t Casella[][] tauler a mostrar
    * @see sma.ontology.Cell
    */
-  public void showGameMap(Cell[][] t) {
-    this.jMapPanel = new MapVisualizer(t);
+  public void showGameMap(Cell[][] t, List<Cell> listGarbage) {
+    this.jMapPanel = new MapVisualizer(t, listGarbage);
     this.jGamePanel.add(jMapPanel);
     this.jGamePanel.repaint();
   }
