@@ -1,32 +1,28 @@
 package sma;
 
+import jade.core.AID;
+import jade.core.Agent;
+import jade.core.behaviours.FSMBehaviour;
+import jade.core.behaviours.SimpleBehaviour;
+import jade.domain.DFService;
+import jade.domain.FIPAException;
+import jade.domain.FIPANames.InteractionProtocol;
+import jade.domain.FIPAAgentManagement.DFAgentDescription;
+import jade.domain.FIPAAgentManagement.ServiceDescription;
+import jade.lang.acl.ACLMessage;
+import jade.lang.acl.UnreadableException;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 
-import sma.CoordinatorAgent.ListenRequestMap;
-import sma.HarvesterCoordinatorAgent.InitialSendToHarvester;
-import sma.HarvesterCoordinatorAgent.ReceiveMovement;
-import sma.HarvesterCoordinatorAgent.RequestGameInfo;
-import sma.HarvesterCoordinatorAgent.SendGameInfo;
-import sma.HarvesterCoordinatorAgent.SendMovement;
 import sma.ontology.AStar;
 import sma.ontology.AuxGarbage;
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
 import sma.ontology.InfoAgent;
-import sma.ontology.InfoGame;
-import jade.core.*;
-import jade.core.behaviours.FSMBehaviour;
-import jade.core.behaviours.SimpleBehaviour;
-import jade.domain.DFService;
-import jade.domain.FIPAException;
-import jade.domain.FIPAAgentManagement.DFAgentDescription;
-import jade.domain.FIPAAgentManagement.ServiceDescription;
-import jade.domain.FIPANames.InteractionProtocol;
-import jade.lang.acl.ACLMessage;
-import jade.lang.acl.UnreadableException;
 
 /**
  * 
@@ -557,8 +553,6 @@ public class HarvesterAgent extends Agent {
 		astar = new AStar(mapInfo);
 		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
 		
-		
-		
 		if(newPosition != null){
 			//The new position is occupied by someone?
 			if(newPosition.isThereAnAgent()){
@@ -577,19 +571,30 @@ public class HarvesterAgent extends Agent {
 						int other_garbageAmount = other_infoagent.getGarbageUnits()[InfoAgent.GLASS] + other_infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + other_infoagent.getGarbageUnits()[InfoAgent.METAL] + other_infoagent.getGarbageUnits()[InfoAgent.PAPER];
 						
 						/* The harvester carrying more garbage is the one that is going to move */
-						if (garbageAmount >= other_garbageAmount){
+						if (garbageAmount > other_garbageAmount){
 							try {
 								newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); 
 							} catch (Exception e) {
 								showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
 							}
-						}else{
+						}else if(garbageAmount < other_garbageAmount){
 							newPosition = moveToFreePlace(cells, actualPosition, newPosition, mapInfo.getInfoAgent(this.getAID()));
 							try {
 								newPosition.addAgent(mapInfo.getInfoAgent(this.getAID()));
 							} catch (Exception e) {
 								e.printStackTrace();
 							} 
+						}else{
+							int h1 = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent).getAID().hashCode();
+							int h2 = newPosition.getAgent().getAID().hashCode();
+							if (h1 > h2){
+								try {
+									newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+									//actualPosition.removeAgent(actualPosition.getAgent());
+								} catch (Exception e) {
+									showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+								}
+							}
 						}
 						
 						break;
@@ -621,7 +626,8 @@ public class HarvesterAgent extends Agent {
 		int[] list = null;
 		// Search a cell street
 		while (arrayList.size() != 0) {
-			list = arrayList.remove(0);
+			Random a = new Random();
+			list = arrayList.remove(a.nextInt(arrayList.size()));
 
 			int xi = list[0];
 			int yi = list[1];

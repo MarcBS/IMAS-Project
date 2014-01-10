@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 
 import jade.core.AID;
 import jade.core.Agent;
@@ -471,8 +472,9 @@ public class ScoutAgent extends Agent {
 		int[] list = null;
 		// Search a cell street
 		while (arrayList.size() != 0) {
-			list = arrayList.remove(0);
-
+			Random a = new Random();
+			list = arrayList.remove(a.nextInt(arrayList.size()));
+			
 			int xi = list[0];
 			int yi = list[1];
 
