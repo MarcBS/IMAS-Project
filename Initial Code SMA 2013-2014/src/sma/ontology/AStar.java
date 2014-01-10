@@ -4,12 +4,13 @@ import org.newdawn.slick.util.pathfinding.AStarPathFinder;
 import org.newdawn.slick.util.pathfinding.Path;
 import org.newdawn.slick.util.pathfinding.PathFindingContext;
 import org.newdawn.slick.util.pathfinding.TileBasedMap;
+
 /**
  * 
  * @author Iosu Mendizabal
  * 
- * Class where the A* path finding algorithm is computed.
- *
+ *         Class where the A* path finding algorithm is computed.
+ * 
  */
 public class AStar {
 
@@ -23,39 +24,47 @@ public class AStar {
 
 		for (int i = 0; i < mapInfo.getMapRows(); i++) {
 			for (int j = 0; j < mapInfo.getMapColumns(); j++) {
-				if (mapInfo.getCell(i, j).getCellType() == 2) {
+				if (mapInfo.getCell(i, j).getCellType() == Cell.STREET) {
 					MAP[i][j] = 1;
 				} else {
 					MAP[i][j] = 0;
 				}
 			}
 		}
-		for(int i = 0; i <  MAP.length; i++){
-			for(int j = 0; j <MAP[0].length; j++){
-				System.out.print(MAP[i][j]+ " ");
-			}
-			System.out.println();
-	}
+//		for (int i = 0; i < MAP.length; i++) {
+//			for (int j = 0; j < MAP[0].length; j++) {
+//				System.out.print(MAP[i][j] + " ");
+//			}
+//			System.out.println();
+//		}
 		map = new SimpleMap(MAP);
 	}
 
-	public Cell shortestPath(Cell[][] cells, Cell actualPosition, Cell objectivePosition) {
-		AStarPathFinder pathFinder = new AStarPathFinder(map, MAX_PATH_LENGTH, true);
-		Path path = pathFinder.findPath(null, actualPosition.getRow(),
-				actualPosition.getColumn(), objectivePosition.getRow(), objectivePosition.getColumn());
-		if(path == null){
-			System.out.println("null path because the objective is a building or imposible to find.");
-			return null; 
-		}else{
+	public Cell shortestPath(Cell[][] cells, Cell actualPosition,
+			Cell objectivePosition) {
+		int x_in = actualPosition.getRow(), y_in = actualPosition.getColumn();
+		int x_togo = objectivePosition.getRow(), y_togo = objectivePosition
+				.getColumn();
+
+		AStarPathFinder pathFinder = new AStarPathFinder(map, MAX_PATH_LENGTH,
+				false);// Diagonal movement false
+		Path path = pathFinder.findPath(null, y_in, x_in, y_togo, x_togo);
+
+		if (path == null) {
+			System.out
+					.println("null path because the objective is a building or imposible to find.");
+			return null;
+		} else {
 			int length = path.getLength();
 			System.out.println("Found path of length: " + length + ".");
 
 			for (int i = 0; i < length; i++) {
-				System.out.println("Move to: " + path.getX(i) + "," + path.getY(i)
-						+ ".");
+				System.out.println("Move to: " + path.getY(i) + ","
+						+ path.getX(i) + ".");
 			}
-			Cell positionToReturn = cells[path.getX(1)][path.getY(1)];
+			Cell positionToReturn = cells[path.getY(1)][path.getX(1)];
 
+			System.out.println("cell type is ="+positionToReturn);
 			return positionToReturn;
 		}
 	}
@@ -74,7 +83,7 @@ class SimpleMap implements TileBasedMap {
 
 	@Override
 	public boolean blocked(PathFindingContext ctx, int x, int y) {
-		return MAP[y][x] == 0;
+		return MAP[y][x] != 1;
 	}
 
 	@Override

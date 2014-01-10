@@ -523,7 +523,7 @@ public class HarvesterAgent extends Agent {
 	
 	
 	private Cell getBestPositionToObjective(Cell[][] cells, Cell actualPosition, Cell objectivePosition) {
-		int x=actualPosition.getRow(), y=actualPosition.getColumn(), xi=0, yi=0;
+		int x=objectivePosition.getRow(), y=objectivePosition.getColumn(), xi=0, yi=0;
 		int maxRows=0, maxColumns=0;
 		Cell newPosition = null;
 		maxRows = mapInfo.getMapRows();
@@ -532,7 +532,7 @@ public class HarvesterAgent extends Agent {
 		List<int[]> intList = Arrays.asList(nearPlaces);
 		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
 		
-		if(objectivePosition.getCellType() == Cell.STREET){
+		if(objectivePosition.getCellType() != Cell.STREET){
 			int [] list = null;
 			//Search a cell street
 			while(arrayList.size() != 0){
