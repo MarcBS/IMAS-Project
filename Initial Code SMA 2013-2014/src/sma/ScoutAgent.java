@@ -23,6 +23,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.UnreadableException;
 import sma.ScoutCoordinatorAgent.InitialSendToScout;
 import sma.ScoutCoordinatorAgent.RequestGameInfo;
+import sma.ontology.AStar;
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
 import sma.ontology.DelimitingZone;
@@ -40,6 +41,9 @@ public class ScoutAgent extends Agent {
 	private AuxInfo auxInfo;
 	private DelimitingZone patrolZone; // object describing the zone where the scout must patrol
 		
+	private ArrayList<Cell> objectivePosition = new ArrayList<Cell>();
+	AStar astar;
+
 	public ScoutAgent(){
 		 super();
 	}
@@ -168,6 +172,36 @@ public class ScoutAgent extends Agent {
 						  	      	try {
 						  	      		AID agent_aid = this.myAgent.getAID();
 						  	      		c = auxInfo.getAgentCell(agent_aid);
+						  	      		
+						  	      		astar = new AStar(auxInfo);
+						  	      		
+						  	      		int x=(int) patrolZone.getUL().getX(); 
+						  	      		int y=(int) patrolZone.getUL().getY();
+						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
+						  	      			
+						  	      		x=(int) patrolZone.getBR().getX();
+						  	      		y=(int) patrolZone.getBR().getY();
+						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
+						  	      		
+							  	      	x=(int) patrolZone.getBL().getX();
+						  	      		y=(int) patrolZone.getBL().getY();
+						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
+						  	      		
+						  	      		x=(int) patrolZone.getUR().getX();
+						  	      		y=(int) patrolZone.getUR().getY();
+						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
+						  	      		
+						  	      		//Change the objective position if not a street to the nearest one
+						  	      		for(int i = 0 ; i < objectivePosition.size() ; i++){
+						  	      			if(objectivePosition.get(i).getCellType()!=Cell.STREET){
+						  	      				Cell pos = astar.getNearObjectStreetPosition(auxInfo.getMap(), objectivePosition.get(i));
+						  	      				objectivePosition.remove(i);
+						  	      				objectivePosition.add(i,pos);
+						  	      			}
+						  	      		}
+						  	      		
+					  	      			//Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
+					  	      			//c = newC;
 						  	      		c = getRandomPosition(auxInfo.getMap(), c);
 					  	      			reply2.setContentObject(c); //Return a new cell to scout coordinator
 						  	      	} catch (Exception e1) {
@@ -213,7 +247,7 @@ public class ScoutAgent extends Agent {
 	
 	/**
 	 * 
-	 * @author Marc Bolaños Solà
+	 * @author Marc Bolaï¿½os Solï¿½
 	 * Looks for any position around it with garbage and sends them to the ScoutsCoordinator.
 	 */
 	protected class SendGarbagePositions extends SimpleBehaviour
@@ -314,7 +348,22 @@ public class ScoutAgent extends Agent {
 					        	ACLMessage reply2 = reply.createReply();
 					  	      	reply2.setPerformative(ACLMessage.INFORM);
 					  	      	try {
-					  	      		c = getRandomPosition(auxInfo.getMap(), c);
+					  	      		if(c.getRow() == objectivePosition.get(0).getRow() && c.getColumn() == objectivePosition.get(0).getColumn()){
+					  	      			Cell corner = objectivePosition.get(0);
+					  	      			objectivePosition.remove(0);
+					  	      			objectivePosition.add(corner);
+					  	      		}
+					  	      		Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
+					  	      		System.out.println("actual pos = "+c);
+
+					  	      		System.out.println("move to = "+newC);
+					  	      		if(newC == null){
+						  	      		c = getRandomPosition(auxInfo.getMap(), c);
+					  	      		}else{
+					  	      			c = newC;
+					  	      		}
+					  	      		//c = getRandomPosition(auxInfo.getMap(), c);
+
 					  	      		reply2.setContentObject(c); //Return a new cell to scout coordinator
 					  	      	} catch (Exception e1) {
 					  	      		reply2.setPerformative(ACLMessage.FAILURE);
@@ -355,7 +404,89 @@ public class ScoutAgent extends Agent {
 	    }
 	}
 	
+	private Cell getBestPositionToObjective(Cell[][] cells, Cell actualPosition, Cell objectivePosition) {
+		Cell newPosition = null;
+		
+		showMessage("I am in the cell = ["+actualPosition.getRow()+","+actualPosition.getColumn()+"]");
+		showMessage("I wanna go to the cell = ["+objectivePosition.getRow()+","+objectivePosition.getColumn()+"]");
+		
+		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
+		
+		if(newPosition != null){
+			//The new position is occupied by someone?
+			if(newPosition.isThereAnAgent()){
+				switch (newPosition.getAgent().getAgentType()){
+					case InfoAgent.SCOUT:
+						// Compare the ID's of each scout. The bigger one will be moved to desired position
+						int s1 = auxInfo.getInfoAgent(this.scoutCoordinatorAgent).getAID().hashCode();
+						int s2 = newPosition.getAgent().getAID().hashCode();
+						if (s1 > s2){
+							try {
+								newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); 
+							} catch (Exception e) {
+								showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+							}
+						}else{
+							newPosition = moveToFreePlace(cells, actualPosition, newPosition, auxInfo.getInfoAgent(this.getAID()));
+							try {
+								newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+							} catch (Exception e) {
+								e.printStackTrace();
+							} 
+						}
+						break;
+					case InfoAgent.HARVESTER:
+						newPosition = moveToFreePlace(cells, actualPosition, newPosition, auxInfo.getInfoAgent(this.getAID()));
+						try {
+							newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+						} catch (Exception e) {
+							e.printStackTrace();
+						} 
+						break;
+					}
+			}else{
+				try {
+					newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+				} catch (Exception e) {
+					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+				}
+			}
+		}
+		return newPosition;
+	}
+
 	
+	private Cell moveToFreePlace(Cell[][] cells, Cell actualPosition, Cell newPosition, InfoAgent infoAgent) {
+			
+		int x = actualPosition.getRow();
+		int y = actualPosition.getColumn();
+		
+		int maxRows = auxInfo.getMapRows();
+		int maxColumns = auxInfo.getMapColumns();
+		
+		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
+		List<int[]> intList = Arrays.asList(nearPlaces);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+		
+		int[] list = null;
+		// Search a cell street
+		while (arrayList.size() != 0) {
+			list = arrayList.remove(0);
+
+			int xi = list[0];
+			int yi = list[1];
+
+			if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+				Cell position = cells[xi][yi];
+				if (position.getCellType() == Cell.STREET) {
+					if(!position.isThereAnAgent()){
+						return position;
+					}
+				}
+			}
+		}
+		return null;
+	}
 	/**
 	 * Method to send a movement (A cell)
 	 * @param reply Recieve message

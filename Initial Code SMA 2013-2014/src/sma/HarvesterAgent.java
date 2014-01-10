@@ -308,7 +308,7 @@ public class HarvesterAgent extends Agent {
 						  	      		if(objectivePosition.getRow() != -1){
 						  	      			
 						  	      			Cell newC = getBestPositionToObjective(mapInfo.getMap(), c, objectivePosition);
-						  	      			if(newC == null){
+						  	      			if(newC == null || newC == c){
 							  	      			c = getRandomPosition(mapInfo.getMap(), c);
 						  	      			}else{
 						  	      				c = newC;						  	      			
@@ -316,6 +316,8 @@ public class HarvesterAgent extends Agent {
 						  	      		}else{
 						  	      			c = getRandomPosition(mapInfo.getMap(), c);
 						  	      		}
+					  	      			//c = getRandomPosition(mapInfo.getMap(), c);
+
 					  	      			showMessage("New cell to move "+c);
 
 						  	      		reply2.setContentObject(c); //Return a new cell to harvester coordinator
@@ -523,83 +525,54 @@ public class HarvesterAgent extends Agent {
 	
 	
 	private Cell getBestPositionToObjective(Cell[][] cells, Cell actualPosition, Cell objectivePosition) {
-		int x=objectivePosition.getRow(), y=objectivePosition.getColumn(), xi=0, yi=0;
-		int maxRows=0, maxColumns=0;
-		Cell newPosition = null;
-		maxRows = mapInfo.getMapRows();
-		maxColumns = mapInfo.getMapColumns();
-		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
-		List<int[]> intList = Arrays.asList(nearPlaces);
-		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
 		
-		if(objectivePosition.getCellType() != Cell.STREET){
-			int [] list = null;
-			//Search a cell street
-			while(arrayList.size() != 0){
-				list = arrayList.remove(0);
-				
-				xi = list[0];
-				yi = list[1];
-				if(xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns)	//Check if the position it's in the range of the map
-				{ 
-					newPosition = cells[xi][yi];
-					if(Cell.STREET == newPosition.getCellType() )	//Check the limits of the map
-					{ 
-						break;
-					}
-				}
-			}
-			objectivePosition = newPosition;
-		}	
+		Cell newPosition = null;
 		
 		showMessage("I am in the cell = ["+actualPosition.getRow()+","+actualPosition.getColumn()+"]");
 		showMessage("I wanna go to the cell = ["+objectivePosition.getRow()+","+objectivePosition.getColumn()+"]");
 		astar = new AStar(mapInfo);
 		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
 		
+		
+		
 		if(newPosition != null){
-			 /* If there is a scout agent in front of */ 
-			if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT){
-				try {
-					newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
-				} catch (Exception e) {
-					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
-				}
-			} 
-			/* If there is a harvester agent in front of */
-			else if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.HARVESTER){
-				InfoAgent infoagent = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent);
-				InfoAgent other_infoagent = newPosition.getAgent();
-				int garbageAmount = infoagent.getGarbageUnits()[InfoAgent.GLASS] + infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + infoagent.getGarbageUnits()[InfoAgent.METAL] + infoagent.getGarbageUnits()[InfoAgent.PAPER];
-				int other_garbageAmount = other_infoagent.getGarbageUnits()[InfoAgent.GLASS] + other_infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + other_infoagent.getGarbageUnits()[InfoAgent.METAL] + other_infoagent.getGarbageUnits()[InfoAgent.PAPER];
-				
-				/* The harvester carrying more garbage is the one that is going to move */
-				if (garbageAmount > other_garbageAmount){
-					try {
-						newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
-					} catch (Exception e) {
-						showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
-					}
-				}else if (garbageAmount < other_garbageAmount){
-					// Do nothing
-				}else	/* Random decision by ID in case of draw */
-				{
-					int h1 = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent).getAID().hashCode();
-					int h2 = newPosition.getAgent().getAID().hashCode();
-					if (h1 > h2)
-					{
+			//The new position is occupied by someone?
+			if(newPosition.isThereAnAgent()){
+				switch (newPosition.getAgent().getAgentType()){
+					case InfoAgent.SCOUT:
 						try {
-							newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+							newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); 
 						} catch (Exception e) {
 							showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
 						}
-					}
+						break;
+					case InfoAgent.HARVESTER:
+						InfoAgent infoagent = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent);
+						InfoAgent other_infoagent = newPosition.getAgent();
+						int garbageAmount = infoagent.getGarbageUnits()[InfoAgent.GLASS] + infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + infoagent.getGarbageUnits()[InfoAgent.METAL] + infoagent.getGarbageUnits()[InfoAgent.PAPER];
+						int other_garbageAmount = other_infoagent.getGarbageUnits()[InfoAgent.GLASS] + other_infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + other_infoagent.getGarbageUnits()[InfoAgent.METAL] + other_infoagent.getGarbageUnits()[InfoAgent.PAPER];
+						
+						/* The harvester carrying more garbage is the one that is going to move */
+						if (garbageAmount >= other_garbageAmount){
+							try {
+								newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); 
+							} catch (Exception e) {
+								showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+							}
+						}else{
+							newPosition = moveToFreePlace(cells, actualPosition, newPosition, mapInfo.getInfoAgent(this.getAID()));
+							try {
+								newPosition.addAgent(mapInfo.getInfoAgent(this.getAID()));
+							} catch (Exception e) {
+								e.printStackTrace();
+							} 
+						}
+						
+						break;
 				}
-			}
-			 /* If there is not an agent */ 
-			else{
+			}else{
 				try {
-					newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+					newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); 
 				} catch (Exception e) {
 					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
 				}
@@ -609,6 +582,37 @@ public class HarvesterAgent extends Agent {
 		return newPosition;
 	}
 
+	private Cell moveToFreePlace(Cell[][] cells, Cell actualPosition, Cell newPosition, InfoAgent infoAgent) {
+		
+		int x = actualPosition.getRow();
+		int y = actualPosition.getColumn();
+		
+		int maxRows = mapInfo.getMapRows();
+		int maxColumns = mapInfo.getMapColumns();
+		
+		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
+		List<int[]> intList = Arrays.asList(nearPlaces);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+		
+		int[] list = null;
+		// Search a cell street
+		while (arrayList.size() != 0) {
+			list = arrayList.remove(0);
+
+			int xi = list[0];
+			int yi = list[1];
+
+			if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+				Cell position = cells[xi][yi];
+				if (position.getCellType() == Cell.STREET) {
+					if(!position.isThereAnAgent()){
+						return position;
+					}
+				}
+			}
+		}
+		return null;
+	}
 	/**
 	 * Method to send a movement (A cell)
 	 * @param reply Recieve message

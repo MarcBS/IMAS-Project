@@ -1,5 +1,9 @@
 package sma.ontology;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+
 import org.newdawn.slick.util.pathfinding.AStarPathFinder;
 import org.newdawn.slick.util.pathfinding.Path;
 import org.newdawn.slick.util.pathfinding.PathFindingContext;
@@ -17,8 +21,11 @@ public class AStar {
 	private static final int MAX_PATH_LENGTH = 400;
 
 	private SimpleMap map;
-
+	private AuxInfo mapInfo;
+	
 	public AStar(AuxInfo mapInfo) {
+		this.mapInfo = mapInfo;
+		
 		final int[][] MAP = new int[mapInfo.getMapRows()][mapInfo
 				.getMapColumns()];
 
@@ -40,14 +47,18 @@ public class AStar {
 		map = new SimpleMap(MAP);
 	}
 
-	public Cell shortestPath(Cell[][] cells, Cell actualPosition,
-			Cell objectivePosition) {
+	public Cell shortestPath(Cell[][] cells, Cell actualPosition, Cell objectivePosition) {
+		
+		if(objectivePosition.getCellType() != Cell.STREET){
+			objectivePosition = getNearObjectStreetPosition(cells, objectivePosition);
+		}
+		
 		int x_in = actualPosition.getRow(), y_in = actualPosition.getColumn();
 		int x_togo = objectivePosition.getRow(), y_togo = objectivePosition
 				.getColumn();
 
 		AStarPathFinder pathFinder = new AStarPathFinder(map, MAX_PATH_LENGTH,
-				false);// Diagonal movement false
+				true);// Diagonal movement not allowed false, true allowed
 		Path path = pathFinder.findPath(null, y_in, x_in, y_togo, x_togo);
 
 		if (path == null) {
@@ -67,6 +78,43 @@ public class AStar {
 			System.out.println("cell type is ="+positionToReturn);
 			return positionToReturn;
 		}
+	}
+
+	public Cell getNearObjectStreetPosition(Cell[][] cells,Cell objectivePosition) {
+		int x= objectivePosition.getRow(), y=(int) objectivePosition.getColumn(), xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		Cell newPosition = null;
+		
+		maxRows = mapInfo.getMapRows();
+		maxColumns = mapInfo.getMapColumns();
+		
+		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
+		List<int[]> intList = Arrays.asList(nearPlaces);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+		
+		objectivePosition = cells[x][y];
+		
+		if(objectivePosition.getCellType() != Cell.STREET){
+			int [] list = null;
+			//Search a cell street
+			while(arrayList.size() != 0){
+				list = arrayList.remove(0);
+				
+				xi = list[0];
+				yi = list[1];
+				if(xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns)	//Check if the position it's in the range of the map
+				{ 
+					newPosition = cells[xi][yi];
+					if(Cell.STREET == newPosition.getCellType() )	//Check the limits of the map
+					{ 
+						objectivePosition = newPosition;
+						return objectivePosition;
+					}
+				}
+			}
+			objectivePosition = newPosition;
+		}	
+		return objectivePosition;
 	}
 
 }

@@ -8,12 +8,12 @@ import jade.core.AID;
  * <p><b>Copyright:</b> Copyright (c) 2013</p>
  * <p><b>Company:</b> Universitat Rovira i Virgili (<a
  * href="http://www.urv.cat">URV</a>)</p>
- * @author David Isern & Joan Albert López
+ * @author David Isern & Joan Albert Lï¿½pez
  */
 public class InfoAgent extends Object implements java.io.Serializable {
 
-	static public int SCOUT = 0;
-	static public int HARVESTER = 1;
+	final static public int SCOUT = 0;
+	final static public int HARVESTER = 1;
 
 	private int typeAgent = -1;
 	private AID aid;
