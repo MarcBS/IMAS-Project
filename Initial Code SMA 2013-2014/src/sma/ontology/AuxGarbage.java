@@ -68,5 +68,8 @@ public class AuxGarbage implements Serializable {
 		this.info = info;
 	}
 	
+	public String getGarbageType(){
+		return String.valueOf(this.info.getGarbageType());
+	}
 	
 }

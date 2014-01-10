@@ -436,15 +436,39 @@ public class HarvesterAgent extends Agent {
 			
 			AID agent_aid = this.myAgent.getAID();
 			Cell c = mapInfo.getAgentCell(agent_aid);
-			float distance = Math.abs(c.getColumn()-auctionInfo.getColumn()) + Math.abs(c.getRow()-auctionInfo.getRow()); 
-			float capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
 			
+			float distance1 = Math.abs(c.getColumn()-auctionInfo.getColumn()) + Math.abs(c.getRow()-auctionInfo.getRow());
+			List<Cell> recyclingCenters = mapInfo.getRecyclingCenters();
+			int points = 0;
+			float distance2 = Float.POSITIVE_INFINITY;
+			Cell destination = null;
+			for(Cell tmp : recyclingCenters){
+				try {
+					if(tmp.getGarbagePoints(auctionInfo.getGarbageType()) >= points){
+						points = tmp.getGarbagePoints(auctionInfo.getGarbageType());
+						float tmp_distance = Math.abs(auctionInfo.getColumn()-tmp.getColumn()) + Math.abs(auctionInfo.getRow()-tmp.getRow());
+						if(tmp_distance < distance2){
+							distance2 = tmp_distance;
+							destination = tmp;
+						}
+					}
+				} catch (Exception e) {
+					
+				}
+				
+			}
+			float capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
+			try {
+				points = destination.getGarbagePoints(auctionInfo.getGarbageType());
+			} catch (Exception e2) {
+				points = 0;
+			}
 			float bid = -1;
 			try {
-				float tmp = capacity - auctionInfo.getInfo().getGarbageUnits();
-				if(tmp == 0){ tmp = 1;}
-				else{tmp = 1/tmp;}
-				bid = 1/distance + tmp;
+				float tmp_capacity = capacity - auctionInfo.getInfo().getGarbageUnits();
+				if(tmp_capacity == 0){ tmp_capacity = 1;} // if the harvester is full, optimizes the garbage collection
+				//else{tmp_capacity = 1/tmp_capacity;} 
+				bid = 1/distance1 + 1/tmp_capacity + 1/distance2 + points;
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
