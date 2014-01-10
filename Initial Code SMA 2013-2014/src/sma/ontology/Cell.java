@@ -125,6 +125,21 @@ public class Cell implements Serializable {
 			throw new Exception("Wrong operation");
 		return garbagePoints;
 	}
+	
+	public int getGarbagePoints(String garbage) throws Exception{
+		if (this.getCellType() != RECYCLING_CENTER)
+			throw new Exception("Wrong operation");
+		if(garbage.equals("G")){
+			return garbagePoints[0];
+		}else if(garbage.equals("P")){
+			return garbagePoints[1];
+		}else if(garbage.equals("M")){
+			return garbagePoints[2];
+		}else if(garbage.equals("A")){
+			return garbagePoints[3];
+		}
+		return 0;
+	}
 
 	public String getGarbagePointsString() throws Exception {
 		if (this.getCellType() != RECYCLING_CENTER)
@@ -140,6 +155,8 @@ public class Cell implements Serializable {
 			points = points + garbagePoints[3] + "A";
 		return points;
 	}
+	
+	
 
 	public void setGarbagePoints(int[] g) throws Exception {
 		if (this.getCellType() != RECYCLING_CENTER)
