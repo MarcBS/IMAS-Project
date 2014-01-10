@@ -58,7 +58,7 @@ public class AStar {
 				.getColumn();
 
 		AStarPathFinder pathFinder = new AStarPathFinder(map, MAX_PATH_LENGTH,
-				true);// Diagonal movement not allowed false, true allowed
+				false);// Diagonal movement not allowed false, true allowed
 		Path path = pathFinder.findPath(null, y_in, x_in, y_togo, x_togo);
 
 		if (path == null) {
