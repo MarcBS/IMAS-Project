@@ -202,6 +202,10 @@ public class ScoutAgent extends Agent {
 						  	      		AID agent_aid = this.myAgent.getAID();
 						  	      		c = auxInfo.getAgentCell(agent_aid);
 						  	      		
+						  	      		/**
+						  	      		 * Create the patrol zone with the bounds of the delimiting zone 
+						  	      		 * of each agent. Add in arrayList of objective positions
+						  	      		 */
 						  	      		int x=(int) patrolZone.getUL().getX(); 
 						  	      		int y=(int) patrolZone.getUL().getY();
 						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
@@ -226,10 +230,12 @@ public class ScoutAgent extends Agent {
 						  	      				objectivePosition.add(i,pos);
 						  	      			}
 						  	      		}
-						  	      		
-					  	      			//Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
-					  	      			//c = newC;
-						  	      		c = getRandomPosition(auxInfo.getMap(), c);
+						  	      		//First movement
+						  	      		//Following the best position to the path
+					  	      			Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
+					  	      			c = newC;
+						  	      		//Or random
+						  	      		//c = getRandomPosition(auxInfo.getMap(), c);
 					  	      			reply2.setContentObject(c); //Return a new cell to scout coordinator
 						  	      	} catch (Exception e1) {
 						  	      		reply2.setPerformative(ACLMessage.FAILURE);
@@ -375,15 +381,17 @@ public class ScoutAgent extends Agent {
 					        	ACLMessage reply2 = reply.createReply();
 					  	      	reply2.setPerformative(ACLMessage.INFORM);
 					  	      	try {
+					  	      		/**
+					  	      		 * If the position of the scout equal to objective position go to the next objective position and
+					  	      		 * add to the queue of the list the position arrived to.
+					  	      		 */
 					  	      		if(c.getRow() == objectivePosition.get(0).getRow() && c.getColumn() == objectivePosition.get(0).getColumn()){
 					  	      			Cell corner = objectivePosition.get(0);
 					  	      			objectivePosition.remove(0);
 					  	      			objectivePosition.add(corner);
 					  	      		}
 					  	      		Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
-					  	      		System.out.println("actual pos = "+c);
 
-					  	      		System.out.println("move to = "+newC);
 					  	      		if(newC == null){
 						  	      		c = getRandomPosition(auxInfo.getMap(), c);
 					  	      		}else{
@@ -439,6 +447,13 @@ public class ScoutAgent extends Agent {
 		
 		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
 		
+		newPosition = checkIfPositionIsOccupied(newPosition, cells, actualPosition);
+		
+		return newPosition;
+	}
+
+	
+	private Cell checkIfPositionIsOccupied(Cell newPosition, Cell[][] cells, Cell actualPosition) {
 		if(newPosition != null){
 			//The new position is occupied by someone?
 			if(newPosition.isThereAnAgent()){
@@ -478,11 +493,16 @@ public class ScoutAgent extends Agent {
 					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
 				}
 			}
-		}
+		}else{
+			newPosition = moveToFreePlace(cells, actualPosition, newPosition, auxInfo.getInfoAgent(this.getAID()));
+			try {
+				newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+			} catch (Exception e) {
+				e.printStackTrace();
+			} 
+		}		
 		return newPosition;
 	}
-
-	
 	private Cell moveToFreePlace(Cell[][] cells, Cell actualPosition, Cell newPosition, InfoAgent infoAgent) {
 			
 		int x = actualPosition.getRow();
@@ -513,7 +533,7 @@ public class ScoutAgent extends Agent {
 				}
 			}
 		}
-		return null;
+		return actualPosition;
 	}
 	/**
 	 * Method to send a movement (A cell)
