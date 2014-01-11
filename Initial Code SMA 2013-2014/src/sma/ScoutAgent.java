@@ -45,7 +45,7 @@ public class ScoutAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
 	private boolean debugging = false;
-	private boolean debuggingPatrolingPath = true;
+	private boolean debuggingPatrolingPath = false;
 	
 	private AID scoutCoordinatorAgent;
 	// array storing the not handled messages
