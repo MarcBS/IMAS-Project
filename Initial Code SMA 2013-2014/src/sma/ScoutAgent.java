@@ -1,13 +1,23 @@
 package sma;
 
+import java.awt.Point;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Queue;
+import java.util.Set;
+import java.util.Stack;
+
+import org.newdawn.slick.util.pathfinding.AStarPathFinder;
+import org.newdawn.slick.util.pathfinding.Path;
+import org.newdawn.slick.util.pathfinding.Path.Step;
 
 import jade.core.AID;
 import jade.core.Agent;
@@ -23,6 +33,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.UnreadableException;
 import sma.ScoutCoordinatorAgent.InitialSendToScout;
 import sma.ScoutCoordinatorAgent.RequestGameInfo;
+import sma.ontology.AStar;
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
 import sma.ontology.DelimitingZone;
@@ -33,12 +44,19 @@ public class ScoutAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
 	private boolean debugging = false;
-
+	private boolean debuggingPatrolingPath = false;
+	
 	private AID scoutCoordinatorAgent;
 	// array storing the not handled messages
 	private MessagesList messagesQueue = new MessagesList(this);
 	private AuxInfo auxInfo;
 	private DelimitingZone patrolZone; // object describing the zone where the scout must patrol
+	
+	//Patrol path parameters
+	private ArrayList<Boolean> visitedBuildings;
+	private ArrayList<Point> buildings;
+	private int noVisited;
+
 		
 	public ScoutAgent(){
 		 super();
@@ -49,6 +67,11 @@ public class ScoutAgent extends Agent {
 	   */
 	private void showMessage(String str) {
 		if(debugging)
+			System.out.println(getLocalName() + ": " + str);
+	}
+	
+	private void showMessageWithBoolean(Boolean b, String str) {
+		if(b)
 			System.out.println(getLocalName() + ": " + str);
 	}
 	
@@ -77,7 +100,8 @@ public class ScoutAgent extends Agent {
 	    }
 	    
 //	    move();
-	    
+		visitedBuildings = new ArrayList<Boolean>();
+		
 	    // search ScoutsCoordinatorAgent
 	    ServiceDescription searchCriterion = new ServiceDescription();
 	    searchCriterion.setType(UtilsAgents.SCOUT_COORDINATOR_AGENT);
@@ -161,6 +185,9 @@ public class ScoutAgent extends Agent {
 								try {
 									patrolZone = (DelimitingZone) reply.getContentObject();
 									showMessage("Receiving patrol zone from "+receptor);
+									//if(this.getAgent().getName().equals("s0@192.168.1.130:1099/JADE")){
+									createPatrollPath();
+									//}
 									// Send the cell
 						        	ACLMessage reply2 = reply.createReply();
 						  	      	reply2.setPerformative(ACLMessage.INFORM);
@@ -213,7 +240,7 @@ public class ScoutAgent extends Agent {
 	
 	/**
 	 * 
-	 * @author Marc Bolaños Solà
+	 * @author Marc Bolaï¿½os Solï¿½
 	 * Looks for any position around it with garbage and sends them to the ScoutsCoordinator.
 	 */
 	protected class SendGarbagePositions extends SimpleBehaviour
@@ -488,4 +515,178 @@ public class ScoutAgent extends Agent {
 		return garbage;
 	}
 	
+	private void createPatrollPath(){
+		System.out.println("Creating the patrolling path!");
+		Point UL = patrolZone.getUL(); //We will use the UL as initial point on the patroll path.
+		buildings = patrolZone.getBuildingsPositions();
+		
+		for(int i=0;i<buildings.size();i++){
+			visitedBuildings.add(false);
+		}
+		
+		this.noVisited = visitedBuildings.size();
+		
+		//Initial point of the path it is possible or not
+		Point currentPos = checkInitialPosition(UL);
+		showMessageWithBoolean(this.debuggingPatrolingPath,"Initial point:"+currentPos);
+		
+		ArrayList<Point> patrollPath = new ArrayList<Point>(); 		//Points of patrol path
+		Stack<Point> stack =new Stack<Point>();
+		Set<Point> cellsVisited = new HashSet<Point>(); 		
+		stack.add(currentPos);
+		
+		//While not visit all the buildings
+		while(this.noVisited!=0 && !stack.isEmpty()){
+			currentPos = stack.pop();
+			
+			if(!cellsVisited.contains(currentPos)){
+				cellsVisited.add(currentPos);
+				patrollPath.add(currentPos);
+				
+				int num = 0;
+				for(Point p : getChilds(currentPos)){
+					if(!cellsVisited.contains(p)){
+						stack.push(p);
+						num++;
+					}
+				}
+				
+				//Need backtracking because you already visited all of your neighbours
+				if(num==0 && !stack.isEmpty()){
+					showMessageWithBoolean(this.debuggingPatrolingPath,"\nBacktracking is neeeded!");
+					Point objectivePos;
+					objectivePos = stack.pop();
+					while(cellsVisited.contains(objectivePos)){
+						objectivePos =  stack.pop();
+						showMessageWithBoolean(this.debuggingPatrolingPath,"Pos->"+objectivePos);
+					}
+					showMessageWithBoolean(this.debuggingPatrolingPath,"Current->"+currentPos);
+					showMessageWithBoolean(this.debuggingPatrolingPath,"Objective->"+objectivePos);
+
+					//Compute A* to the current position to the objective
+					AStar astar = new AStar(auxInfo);
+					AStarPathFinder pathFinder = new AStarPathFinder(astar.map, 1000,false);// Diagonal movement not allowed false, true allowed
+					Path path = pathFinder.findPath(null, currentPos.y, currentPos.x, objectivePos.y, objectivePos.x);
+					
+					for(int i=1; i<path.getLength()-1; i++){
+						Step s = path.getStep(i);
+						Point p = new Point(s.getY(),s.getX());
+						patrollPath.add(p);
+						showMessageWithBoolean(this.debuggingPatrolingPath,"Backtracking..."+p);
+					}
+					
+					//Push the non visited position
+					stack.add(objectivePos);
+					showMessageWithBoolean(this.debuggingPatrolingPath,"Finish backtracking! \n");
+				}
+			}
+		}
+		
+		if(this.debuggingPatrolingPath){
+			System.out.println("Patrol path have been created!");
+			for(int i=0; i<this.visitedBuildings.size(); i++){
+				if(!this.visitedBuildings.get(i)) System.out.println(this.buildings.get(i));
+			}
+		}
+		
+		if(this.debuggingPatrolingPath){
+			System.out.println("Printing the patrol path");
+			System.out.println("Path size"+patrollPath.size());
+			for(Point p : patrollPath){
+				System.out.println(p);
+			}
+			System.out.println("Process finished!");
+		}
+	}
+	
+	
+	/**
+	 * Check and correct if the initial point is or not a building
+	 * @param p Initial point
+	 * @return Return a correct initial point
+	 */
+	private Point checkInitialPosition(Point p){
+		Cell[][] map = auxInfo.getMap();
+		Cell c = map[p.x][p.y];
+		c.setColumn(p.y);
+		c.setRow(p.x);
+		int count = 0;
+		while(c.getCellType()!=c.STREET){
+			c = map[p.x][p.y+count];
+			c.setColumn(p.y+count);
+			c.setRow(p.x);
+			count++;
+		}
+		return new Point(c.getRow(),c.getColumn());
+	}
+	
+	/**
+	 * Method to check the buildings around the current position
+	 * @param movements All the possible movements
+	 * @return Return the all the possible movements filtered
+	 */
+	private ArrayList<Point> checkBuilding(ArrayList<Point> movements){
+		Point b;
+		Point UL = patrolZone.getUL();
+		Point BR = patrolZone.getBR();
+		Cell[][] map = auxInfo.getMap();
+		ArrayList<Point> possibleMovements = new ArrayList<Point>();
+		for(Point p : movements){
+			int i = 0;
+			boolean found = false;
+
+			while(i<buildings.size() && !found){
+				b = buildings.get(i);
+				//Check if the point p is a building
+				if((b.getX()==p.getX()) &&(b.getY()==p.getY()))   found = true;
+				else i++;
+			}
+			
+			if(found){
+				if(!visitedBuildings.get(i)){
+					visitedBuildings.set(i, true);
+					this.noVisited--;
+					showMessageWithBoolean(this.debuggingPatrolingPath,"    Visiting->"+buildings.get(i));
+					showMessageWithBoolean(this.debuggingPatrolingPath,"    Num non visites->"+this.noVisited);
+				}
+			}else{
+				//Check if the movement it can be possible, it is in the delimited zone.
+				if((p.x>=0)&&(p.y>=0)&&(p.x<auxInfo.getMapRows())&&(p.y<auxInfo.getMapColumns()) 
+						&& (UL.getX()<=p.getX()) && (UL.getY()<=p.getY())  && (BR.getX()>=p.getX()) && (BR.getY()>=p.getY())){
+					//Check the cell type of the new movement is a street
+					int type = map[p.x][p.y].getCellType(); 
+					if(Cell.STREET==type) possibleMovements.add(p);
+				}
+			}
+		}
+		return possibleMovements;
+	}
+	
+	/**
+	 * Get the child cells of the current position
+	 * @param currentPos Current position
+	 * @return Return the possible movements of the childs of the current position
+	 */
+	private ArrayList<Point> getChilds(Point currentPos){
+		Point up, right, left, down;
+		double x,y;
+		ArrayList<Point> possibleMovements =  new ArrayList<Point>();
+		
+		x = currentPos.getX();
+		y = currentPos.getY();
+						
+		//Move in the 4 possible directions
+		up=new Point((int)currentPos.getX()-1,(int)currentPos.getY());
+		right=new Point((int)currentPos.getX(),(int)currentPos.getY()+1);
+		left=new Point((int)currentPos.getX(),(int)currentPos.getY()-1);
+		down=new Point((int)currentPos.getX()+1,(int)currentPos.getY());
+		
+		//Remove the building in the list of no visited buildings.
+		possibleMovements.add(up);
+		possibleMovements.add(left);
+		possibleMovements.add(right);
+		possibleMovements.add(down);
+		
+		return checkBuilding(possibleMovements);
+	}
 }
