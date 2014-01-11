@@ -1,6 +1,7 @@
 package sma.gui;
 
 import javax.swing.*;
+
 import java.awt.geom.Ellipse2D;
 import java.awt.Composite;
 import java.awt.geom.Rectangle2D;
@@ -13,8 +14,11 @@ import java.awt.Dimension;
 import java.awt.Graphics;
 import java.awt.Image;
 import java.awt.image.BufferedImage; 
+
 import javax.imageio.*;
+
 import java.io.*;
+import java.util.List;
 
 import sma.ontology.Cell;
 import sma.ontology.InfoAgent;
@@ -36,6 +40,7 @@ public class MapVisualizer extends JPanel {
   private int inset = 50;
    int nrows, ncols;
    private Cell[][] t;
+   private List<Cell> listGarbage;
    java.awt.Point start, end;
    int dx, dy, gap;
    private Rectangle2D.Double cellBorder;
@@ -45,8 +50,9 @@ public class MapVisualizer extends JPanel {
 
 
 
-   public MapVisualizer(Cell[][] t) {
+   public MapVisualizer(Cell[][] t, List<Cell> listGarbage) {
      this.t = t;
+     this.listGarbage = listGarbage;
      nrows = t.length;
      ncols = t[0].length;
 
@@ -63,7 +69,7 @@ public class MapVisualizer extends JPanel {
 
    }
 
-    private void drawBuilding(Graphics2D g2d, int x, int y, Cell c) {
+    private void drawBuilding(Graphics2D g2d, int x, int y, Cell c, Color color) {
 //       g2d.translate(dx * x, dy * y);
       try {
     	g2d.setPaint(Color.CYAN.darker());
@@ -75,7 +81,7 @@ public class MapVisualizer extends JPanel {
                              java.awt.RenderingHints.VALUE_ANTIALIAS_ON);
         java.awt.Font font = new java.awt.Font("Serif", java.awt.Font.PLAIN, 11);
         g2d.setFont(font);
-        g2d.setPaint(Color.WHITE);
+        g2d.setPaint(color);
         g2d.drawString(msg,dx-40,dy);
       } catch(Exception e) {
         e.printStackTrace();
@@ -176,7 +182,18 @@ public class MapVisualizer extends JPanel {
           g2d.draw(cellBorder);
           if(t[i][j].getCellType()==Cell.STREET) drawStreet(g2d, i, j, t[i][j]);
           if(t[i][j].getCellType()==Cell.RECYCLING_CENTER) drawRecyclingCenter(g2d, i, j, t[i][j]);
-          if(t[i][j].getCellType()==Cell.BUILDING) drawBuilding(g2d, i, j, t[i][j]);
+          if(t[i][j].getCellType()==Cell.BUILDING){
+        	  boolean found = false;
+        	  Color color = null;
+        	  for(Cell c : this.listGarbage){
+        		  if(c.getColumn() == j && c.getRow() == i){
+        			  color = Color.CYAN;
+        			  found = true;
+        		  }
+        	  }
+        	  if(!found) color = Color.YELLOW; // if the scouts have detected the garbage we set it to yellow
+        	  drawBuilding(g2d, i, j, t[i][j], color);
+          }
           g2d.translate(dx,0);
         }
         g2d.translate(-(dx*t[0].length),dy);

@@ -8,6 +8,5 @@
 	<classpathentry kind="lib" path="lib/iiop.jar"/>
 	<classpathentry kind="lib" path="lib/jadeTools.jar"/>
 	<classpathentry kind="lib" path="lib/slick.jar"/>
-	<classpathentry kind="src" path="/astar"/>
 	<classpathentry kind="output" path="bin"/>
 </classpath>

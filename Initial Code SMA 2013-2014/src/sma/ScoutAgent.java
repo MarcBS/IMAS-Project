@@ -14,6 +14,7 @@ import java.util.PriorityQueue;
 import java.util.Queue;
 import java.util.Set;
 import java.util.Stack;
+import java.util.Random;
 
 import org.newdawn.slick.util.pathfinding.AStarPathFinder;
 import org.newdawn.slick.util.pathfinding.Path;
@@ -44,7 +45,7 @@ public class ScoutAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
 	private boolean debugging = false;
-	private boolean debuggingPatrolingPath = false;
+	private boolean debuggingPatrolingPath = true;
 	
 	private AID scoutCoordinatorAgent;
 	// array storing the not handled messages
@@ -58,6 +59,9 @@ public class ScoutAgent extends Agent {
 	private int noVisited;
 
 		
+	private ArrayList<Cell> objectivePosition = new ArrayList<Cell>();
+	AStar astar;
+
 	public ScoutAgent(){
 		 super();
 	}
@@ -184,9 +188,11 @@ public class ScoutAgent extends Agent {
 							} catch (ClassCastException e){
 								try {
 									patrolZone = (DelimitingZone) reply.getContentObject();
+									astar = new AStar(auxInfo);
 									showMessage("Receiving patrol zone from "+receptor);
 									//if(this.getAgent().getName().equals("s0@192.168.1.130:1099/JADE")){
-									createPatrollPath();
+									createPatrolPath();
+									System.out.println("PatrollPath creado");
 									//}
 									// Send the cell
 						        	ACLMessage reply2 = reply.createReply();
@@ -195,6 +201,34 @@ public class ScoutAgent extends Agent {
 						  	      	try {
 						  	      		AID agent_aid = this.myAgent.getAID();
 						  	      		c = auxInfo.getAgentCell(agent_aid);
+						  	      		
+						  	      		int x=(int) patrolZone.getUL().getX(); 
+						  	      		int y=(int) patrolZone.getUL().getY();
+						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
+						  	      			
+						  	      		x=(int) patrolZone.getBR().getX();
+						  	      		y=(int) patrolZone.getBR().getY();
+						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
+						  	      		
+							  	      	x=(int) patrolZone.getBL().getX();
+						  	      		y=(int) patrolZone.getBL().getY();
+						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
+						  	      		
+						  	      		x=(int) patrolZone.getUR().getX();
+						  	      		y=(int) patrolZone.getUR().getY();
+						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
+						  	      		
+						  	      		//Change the objective position if not a street to the nearest one
+						  	      		for(int i = 0 ; i < objectivePosition.size() ; i++){
+						  	      			if(objectivePosition.get(i).getCellType()!=Cell.STREET){
+						  	      				Cell pos = astar.getNearObjectStreetPosition(auxInfo.getMap(), objectivePosition.get(i));
+						  	      				objectivePosition.remove(i);
+						  	      				objectivePosition.add(i,pos);
+						  	      			}
+						  	      		}
+						  	      		
+					  	      			//Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
+					  	      			//c = newC;
 						  	      		c = getRandomPosition(auxInfo.getMap(), c);
 					  	      			reply2.setContentObject(c); //Return a new cell to scout coordinator
 						  	      	} catch (Exception e1) {
@@ -341,7 +375,22 @@ public class ScoutAgent extends Agent {
 					        	ACLMessage reply2 = reply.createReply();
 					  	      	reply2.setPerformative(ACLMessage.INFORM);
 					  	      	try {
-					  	      		c = getRandomPosition(auxInfo.getMap(), c);
+					  	      		if(c.getRow() == objectivePosition.get(0).getRow() && c.getColumn() == objectivePosition.get(0).getColumn()){
+					  	      			Cell corner = objectivePosition.get(0);
+					  	      			objectivePosition.remove(0);
+					  	      			objectivePosition.add(corner);
+					  	      		}
+					  	      		Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
+					  	      		System.out.println("actual pos = "+c);
+
+					  	      		System.out.println("move to = "+newC);
+					  	      		if(newC == null){
+						  	      		c = getRandomPosition(auxInfo.getMap(), c);
+					  	      		}else{
+					  	      			c = newC;
+					  	      		}
+					  	      		//c = getRandomPosition(auxInfo.getMap(), c);
+
 					  	      		reply2.setContentObject(c); //Return a new cell to scout coordinator
 					  	      	} catch (Exception e1) {
 					  	      		reply2.setPerformative(ACLMessage.FAILURE);
@@ -382,7 +431,90 @@ public class ScoutAgent extends Agent {
 	    }
 	}
 	
+	private Cell getBestPositionToObjective(Cell[][] cells, Cell actualPosition, Cell objectivePosition) {
+		Cell newPosition = null;
+		
+		showMessage("I am in the cell = ["+actualPosition.getRow()+","+actualPosition.getColumn()+"]");
+		showMessage("I wanna go to the cell = ["+objectivePosition.getRow()+","+objectivePosition.getColumn()+"]");
+		
+		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
+		
+		if(newPosition != null){
+			//The new position is occupied by someone?
+			if(newPosition.isThereAnAgent()){
+				switch (newPosition.getAgent().getAgentType()){
+					case InfoAgent.SCOUT:
+						// Compare the ID's of each scout. The bigger one will be moved to desired position
+						int s1 = auxInfo.getInfoAgent(this.scoutCoordinatorAgent).getAID().hashCode();
+						int s2 = newPosition.getAgent().getAID().hashCode();
+						if (s1 > s2){
+							try {
+								newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); 
+							} catch (Exception e) {
+								showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+							}
+						}else{
+							newPosition = moveToFreePlace(cells, actualPosition, newPosition, auxInfo.getInfoAgent(this.getAID()));
+							try {
+								newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+							} catch (Exception e) {
+								e.printStackTrace();
+							} 
+						}
+						break;
+					case InfoAgent.HARVESTER:
+						newPosition = moveToFreePlace(cells, actualPosition, newPosition, auxInfo.getInfoAgent(this.getAID()));
+						try {
+							newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+						} catch (Exception e) {
+							e.printStackTrace();
+						} 
+						break;
+					}
+			}else{
+				try {
+					newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+				} catch (Exception e) {
+					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+				}
+			}
+		}
+		return newPosition;
+	}
+
 	
+	private Cell moveToFreePlace(Cell[][] cells, Cell actualPosition, Cell newPosition, InfoAgent infoAgent) {
+			
+		int x = actualPosition.getRow();
+		int y = actualPosition.getColumn();
+		
+		int maxRows = auxInfo.getMapRows();
+		int maxColumns = auxInfo.getMapColumns();
+		
+		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
+		List<int[]> intList = Arrays.asList(nearPlaces);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+		
+		int[] list = null;
+		// Search a cell street
+		while (arrayList.size() != 0) {
+			Random a = new Random();
+			list = arrayList.remove(a.nextInt(arrayList.size()));
+			
+			int xi = list[0];
+			int yi = list[1];
+
+			if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+				Cell position = cells[xi][yi];
+				if (position.getCellType() == Cell.STREET) {
+					if(!position.isThereAnAgent()){
+						return position;
+					}
+				}
+			}
+		}
+		return null;
+	}
 	/**
 	 * Method to send a movement (A cell)
 	 * @param reply Recieve message
@@ -515,7 +647,7 @@ public class ScoutAgent extends Agent {
 		return garbage;
 	}
 	
-	private void createPatrollPath(){
+	private void createPatrolPath(){
 		System.out.println("Creating the patrolling path!");
 		Point UL = patrolZone.getUL(); //We will use the UL as initial point on the patroll path.
 		buildings = patrolZone.getBuildingsPositions();
@@ -556,15 +688,14 @@ public class ScoutAgent extends Agent {
 					showMessageWithBoolean(this.debuggingPatrolingPath,"\nBacktracking is neeeded!");
 					Point objectivePos;
 					objectivePos = stack.pop();
-					while(cellsVisited.contains(objectivePos)){
-						objectivePos =  stack.pop();
+					while(cellsVisited.contains(objectivePos)&&!stack.isEmpty()){
 						showMessageWithBoolean(this.debuggingPatrolingPath,"Pos->"+objectivePos);
+						objectivePos =  stack.pop();
 					}
 					showMessageWithBoolean(this.debuggingPatrolingPath,"Current->"+currentPos);
 					showMessageWithBoolean(this.debuggingPatrolingPath,"Objective->"+objectivePos);
 
 					//Compute A* to the current position to the objective
-					AStar astar = new AStar(auxInfo);
 					AStarPathFinder pathFinder = new AStarPathFinder(astar.map, 1000,false);// Diagonal movement not allowed false, true allowed
 					Path path = pathFinder.findPath(null, currentPos.y, currentPos.x, objectivePos.y, objectivePos.x);
 					
@@ -583,19 +714,19 @@ public class ScoutAgent extends Agent {
 		}
 		
 		if(this.debuggingPatrolingPath){
-			System.out.println("Patrol path have been created!");
+			showMessageWithBoolean(this.debuggingPatrolingPath,"Patrol path have been created!");
 			for(int i=0; i<this.visitedBuildings.size(); i++){
 				if(!this.visitedBuildings.get(i)) System.out.println(this.buildings.get(i));
 			}
 		}
 		
 		if(this.debuggingPatrolingPath){
-			System.out.println("Printing the patrol path");
-			System.out.println("Path size"+patrollPath.size());
+			showMessageWithBoolean(this.debuggingPatrolingPath,"Printing the patrol path");
+			showMessageWithBoolean(this.debuggingPatrolingPath,"Path size"+patrollPath.size());
 			for(Point p : patrollPath){
-				System.out.println(p);
+				showMessageWithBoolean(this.debuggingPatrolingPath,p.toString());
 			}
-			System.out.println("Process finished!");
+			showMessageWithBoolean(this.debuggingPatrolingPath,"Process finished!");
 		}
 	}
 	
@@ -646,8 +777,7 @@ public class ScoutAgent extends Agent {
 				if(!visitedBuildings.get(i)){
 					visitedBuildings.set(i, true);
 					this.noVisited--;
-					showMessageWithBoolean(this.debuggingPatrolingPath,"    Visiting->"+buildings.get(i));
-					showMessageWithBoolean(this.debuggingPatrolingPath,"    Num non visites->"+this.noVisited);
+					showMessageWithBoolean(this.debuggingPatrolingPath,"    Visiting->"+buildings.get(i)+"    Num non visites->"+this.noVisited);
 				}
 			}else{
 				//Check if the movement it can be possible, it is in the delimited zone.

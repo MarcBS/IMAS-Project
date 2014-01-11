@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import java.util.Iterator;
 
 /**
- * @author Marc Bolaños Solà
+ * @author Marc Bolaï¿½os Solï¿½
  * 
  * Representation of a delimiting zone for a ScoutAgent:
  * 
@@ -26,6 +26,8 @@ public class DelimitingZone implements Serializable{
 	
 	private Point UL;
 	private Point BR;
+	private Point UR;
+	private Point BL;
 	// Buildings contained into this delimiting zone
 	private ArrayList<Point> buildings;
 	
@@ -41,6 +43,8 @@ public class DelimitingZone implements Serializable{
 	public DelimitingZone(int ulRow, int ulCol, int brRow, int brCol){
 		UL = new Point(ulCol, ulRow);
 		BR = new Point(brCol, brRow);
+		BL = new Point(ulCol, brRow);
+		UR = new Point(brCol, ulRow);
 		buildings = null;
 	}
 	
@@ -61,6 +65,13 @@ public class DelimitingZone implements Serializable{
 	
 	public Point getUL(){
 		return UL;
+	}
+	public Point getBL(){
+		return BL;
+	}
+	
+	public Point getUR(){
+		return UR;
 	}
 	
 	
