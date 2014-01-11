@@ -57,9 +57,11 @@ public class ScoutAgent extends Agent {
 	private ArrayList<Boolean> visitedBuildings;
 	private ArrayList<Point> buildings;
 	private int noVisited;
-
+	private ArrayList<Point> patrollPath;
+	private int patrollPoint = 0;
+	private boolean sign=true;
+	private Point objectivePoint;
 		
-	private ArrayList<Cell> objectivePosition = new ArrayList<Cell>();
 	AStar astar;
 
 	public ScoutAgent(){
@@ -192,7 +194,6 @@ public class ScoutAgent extends Agent {
 									showMessage("Receiving patrol zone from "+receptor);
 									//if(this.getAgent().getName().equals("s0@192.168.1.130:1099/JADE")){
 									createPatrolPath();
-									System.out.println("PatrollPath creado");
 									//}
 									// Send the cell
 						        	ACLMessage reply2 = reply.createReply();
@@ -208,38 +209,18 @@ public class ScoutAgent extends Agent {
 						  	      		 */
 						  	      		int x=(int) patrolZone.getUL().getX(); 
 						  	      		int y=(int) patrolZone.getUL().getY();
-						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
-						  	      			
-						  	      		x=(int) patrolZone.getBR().getX();
-						  	      		y=(int) patrolZone.getBR().getY();
-						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
 						  	      		
-							  	      	x=(int) patrolZone.getBL().getX();
-						  	      		y=(int) patrolZone.getBL().getY();
-						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
-						  	      		
-						  	      		x=(int) patrolZone.getUR().getX();
-						  	      		y=(int) patrolZone.getUR().getY();
-						  	      		objectivePosition.add(auxInfo.getMap()[x][y]);
-						  	      		
-						  	      		//Change the objective position if not a street to the nearest one
-						  	      		for(int i = 0 ; i < objectivePosition.size() ; i++){
-						  	      			if(objectivePosition.get(i).getCellType()!=Cell.STREET){
-						  	      				Cell pos = astar.getNearObjectStreetPosition(auxInfo.getMap(), objectivePosition.get(i));
-						  	      				objectivePosition.remove(i);
-						  	      				objectivePosition.add(i,pos);
-						  	      			}
-						  	      		}
-						  	      		//First movement
-						  	      		//Following the best position to the path
-					  	      			Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
-					  	      			c = newC;
+						  	      		objectivePoint = checkInitialPosition(patrolZone.getUL());
+						  	      	
+						  	      		//First movement Following the best position to the path
+					  	      			c = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
+					  
 						  	      		//Or random
 						  	      		//c = getRandomPosition(auxInfo.getMap(), c);
 					  	      			reply2.setContentObject(c); //Return a new cell to scout coordinator
 						  	      	} catch (Exception e1) {
 						  	      		reply2.setPerformative(ACLMessage.FAILURE);
-						  	      		System.err.println(e.toString());
+						  	      		System.err.println(e1.toString());
 						  	      	}
 						  	      	send(reply2);
 									showMessage("Sending the cell ["+c.getRow()+","+c.getColumn()+"] position to "+receptor);
@@ -381,25 +362,74 @@ public class ScoutAgent extends Agent {
 					        	ACLMessage reply2 = reply.createReply();
 					  	      	reply2.setPerformative(ACLMessage.INFORM);
 					  	      	try {
-					  	      		/**
-					  	      		 * If the position of the scout equal to objective position go to the next objective position and
-					  	      		 * add to the queue of the list the position arrived to.
-					  	      		 */
-					  	      		if(c.getRow() == objectivePosition.get(0).getRow() && c.getColumn() == objectivePosition.get(0).getColumn()){
-					  	      			Cell corner = objectivePosition.get(0);
-					  	      			objectivePosition.remove(0);
-					  	      			objectivePosition.add(corner);
-					  	      		}
-					  	      		Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, objectivePosition.get(0));
-
-					  	      		if(newC == null){
-						  	      		c = getRandomPosition(auxInfo.getMap(), c);
+					  	      		int c_x = c.getRow();
+					  	      		int c_y = c.getColumn();
+					  	      							  	      		
+					  	      		//Case when you don't have objective point
+					  	      		if(objectivePoint==null){
+					  	      			//If you have not got a objective you will follow the patrolling path.
+					  	      			Point patrollMovement= patrollPath.get(patrollPoint);
+					  	      			
+						  	      		//newPositionCell.addAgent(c.getAgent()); //Save infoagent to the new position
+						  	      		showMessageWithBoolean(debuggingPatrolingPath, "Patrolling path");
+					  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
+						  	      		
+					  	      			//Update the pointer in the patrollPath
+					  	      			if(sign){
+						  	      			patrollPoint++;
+					  	      			}else{
+						  	      			patrollPoint--;
+					  	      			}
+						  	      		
+						  	      		//Check if the agent arrives on the final o on the initially of the array of patroll path
+						  	      		if((patrollPoint<0) || (patrollPoint==patrollPath.size())){
+						  	      			sign = !sign; //
+							  	      		if(sign){
+							  	      			patrollPoint++;
+							  	      			patrollPoint++;
+						  	      			}else{
+							  	      			patrollPoint--;
+							  	      			patrollPoint--;
+						  	      			}
+						  	      		}
+					  	      		//Case when you have objective point
 					  	      		}else{
-					  	      			c = newC;
+				  	      				Point UL = checkInitialPosition(patrolZone.getUL());
+					  	      			if((objectivePoint.getX()==c_x) && (objectivePoint.getY()==c_y)){
+					  	      				objectivePoint = null;
+						  	      			Point patrollMovement = patrollPath.get(patrollPoint);
+						  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
+						  	      			
+						  	      			//Check if the patroll movement is possible or not (if not occupated)
+						  	      			if((patrollMovement.x != c.getRow()) && (patrollMovement.y != c.getColumn())){
+						  	      				objectivePoint = patrollMovement; //Save the patroll movement as to the new objective because you do not follow the patrol path.
+						  	      			}
+						  	      			
+						  	      			//Update the pointer in the patrollPath
+						  	      			if(sign){
+							  	      			patrollPoint++;
+						  	      			}else{
+							  	      			patrollPoint--;
+						  	      			}
+						  	      			if(patrollPoint<0 && patrollPoint>=patrollPath.size()){
+							  	      			System.out.println("******Change direction*******");
+							  	      			sign = !sign; //
+								  	      		if(sign){
+								  	      			patrollPoint++;
+							  	      			}else{
+								  	      			patrollPoint--;
+							  	      			}
+						  	      			}
+					  	      			}else{
+							  	      		c = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
+					  	      			}
 					  	      		}
-					  	      		//c = getRandomPosition(auxInfo.getMap(), c);
-
+					  	      		
+					  	      		if(c == null){
+						  	      		c = getRandomPosition(auxInfo.getMap(), c);
+					  	      		}
 					  	      		reply2.setContentObject(c); //Return a new cell to scout coordinator
+					  	      		
 					  	      	} catch (Exception e1) {
 					  	      		reply2.setPerformative(ACLMessage.FAILURE);
 					  	      		System.err.println(e1.toString());
@@ -668,7 +698,7 @@ public class ScoutAgent extends Agent {
 	}
 	
 	private void createPatrolPath(){
-		System.out.println("Creating the patrolling path!");
+		showMessageWithBoolean(this.debuggingPatrolingPath,"Creating the patrolling path!");
 		Point UL = patrolZone.getUL(); //We will use the UL as initial point on the patroll path.
 		buildings = patrolZone.getBuildingsPositions();
 		
@@ -682,7 +712,7 @@ public class ScoutAgent extends Agent {
 		Point currentPos = checkInitialPosition(UL);
 		showMessageWithBoolean(this.debuggingPatrolingPath,"Initial point:"+currentPos);
 		
-		ArrayList<Point> patrollPath = new ArrayList<Point>(); 		//Points of patrol path
+		patrollPath = new ArrayList<Point>(); 		//Points of patrol path
 		Stack<Point> stack =new Stack<Point>();
 		Set<Point> cellsVisited = new HashSet<Point>(); 		
 		stack.add(currentPos);
@@ -731,6 +761,7 @@ public class ScoutAgent extends Agent {
 					showMessageWithBoolean(this.debuggingPatrolingPath,"Finish backtracking! \n");
 				}
 			}
+			showMessageWithBoolean(this.debuggingPatrolingPath,"The patrolling path was finished!");
 		}
 		
 		if(this.debuggingPatrolingPath){
@@ -748,6 +779,7 @@ public class ScoutAgent extends Agent {
 			}
 			showMessageWithBoolean(this.debuggingPatrolingPath,"Process finished!");
 		}
+		patrollPath.remove(0);
 	}
 	
 	
