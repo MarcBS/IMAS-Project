@@ -20,7 +20,7 @@ public class AStar {
 
 	private static final int MAX_PATH_LENGTH = 400;
 
-	private SimpleMap map;
+	public SimpleMap map;
 	private AuxInfo mapInfo;
 	
 	public AStar(AuxInfo mapInfo) {
