@@ -675,7 +675,7 @@ public class HarvesterCoordinatorAgent extends Agent {
 				for(Tuple t : bids){
 					if((float)t.get(1) > bestBid){ winnerAgent = (AID) t.get(0); bestBid = (float) t.get(1);}
 				}
-				
+				System.out.println("The winner is: " + winnerAgent + " with a bid of " + bestBid);
 				showMessage("The winner is: " + winnerAgent + " with a bid of " + bestBid);
 				// broadcast the winner
 				

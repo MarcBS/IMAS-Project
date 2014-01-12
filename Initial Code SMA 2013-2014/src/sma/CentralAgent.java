@@ -136,6 +136,7 @@ public class CentralAgent extends Agent {
       	      numHarvesters++;
     	  }
       }
+      showMessage("All agents placed");
       return agents;
     }
 
@@ -212,13 +213,17 @@ public class CentralAgent extends Agent {
 		// we wait for the initialization of the game
 		MessageTemplate mt = MessageTemplate.and(MessageTemplate.MatchProtocol(InteractionProtocol.FIPA_REQUEST), MessageTemplate.MatchPerformative(ACLMessage.REQUEST));
 
+		showMessage("Starting InitialRequestResponseBehaviour");
 		this.addBehaviour(new InitialRequestResponseBehaviour());
 
+		showMessage("Setup finished");
 
 		// Setup finished. When the last inform is received, the agent itself will add
 		// a behaviour to send/receive actions
 
 		this.addBehaviour(new MainLoopBehaviour(this, game.getTimeout()));
+		
+		showMessage("MainLoopBehaviour added");
 
 	} //endof setup
 
@@ -352,45 +357,110 @@ public class CentralAgent extends Agent {
 
 		@Override
 		public void action() {
-			ACLMessage msg = this.myAgent.receive();
-			ACLMessage reply = msg.createReply();
-			try {
-				
-				Object contentRebut = (Object)msg.getContent();
-				if(contentRebut.equals("Initial request")) {
-					showMessage("Initial request received");
-					reply.setPerformative(ACLMessage.AGREE);
-					send(reply);
+			
+			
+			boolean okInit = false;
+			ACLMessage reply = null;
+			while(!okInit){
+				ACLMessage msg = messagesQueue.getMessage();
+				try {
+					Object contentRebut = (Object)msg.getContent();
+					if(contentRebut.equals("Initial request")) {
+						reply = msg.createReply();
+						showMessage("Initial request received");
+						reply.setPerformative(ACLMessage.AGREE);
+						send(reply);
+						okInit = true;
+					} else {
+			        	messagesQueue.add(msg);
+			        }
+				}catch (Exception e){
+					messagesQueue.add(msg);
 				}
-			} catch (Exception e) {
-				e.printStackTrace();
 			}
-			reply = msg.createReply();
-			reply.setPerformative(ACLMessage.INFORM);
+			
+	        messagesQueue.endRetrieval();
+			
+			if( reply != null){
+				reply.setPerformative(ACLMessage.INFORM);
 
-			try {
-				reply.setContentObject(game.getInfo());
-				
-			} catch (Exception e) {
-				reply.setPerformative(ACLMessage.FAILURE);
-				System.err.println(e.toString());
-				e.printStackTrace();
+				try {
+					reply.setContentObject(game.getInfo());
+					
+				} catch (Exception e) {
+					reply.setPerformative(ACLMessage.FAILURE);
+					System.err.println(e.toString());
+					e.printStackTrace();
+				}
+				send(reply);
+			} else{
+				showMessage("No Initial request message found!!");
 			}
-			send(reply);
+			
 		}
 		
 		
 		
 	}
-//	
-//	private class InitialRequestResponseBehaviour extends AchieveREResponder {
-//
+
+
+	/**
+	 * Reads the movements, applies them and sends an agree reply
+	 * @author Alex Pardo Fernandez
+	 *
+	 */
+	private class RequestResponseBehaviour extends OneShotBehaviour{
+		
+		public RequestResponseBehaviour(CentralAgent myAgent) {
+			super(myAgent);
+			showMessage("Waiting REQUESTs from authorized agents");
+		}
+		@Override
+		public void action() {
+
+			
+			boolean okRR = false;
+			ACLMessage reply = null;
+			showMessage("Waiting REQUESTs from authorized agents");
+			while(!okRR){
+				ACLMessage msg = messagesQueue.getMessage();
+				
+				try {
+					Object contentRebut = (Object)msg.getContent();
+					if(processMovements(msg.getContentObject())) {
+						turnLastMap = game.getTurn();
+						showMessage("Movements applied.");
+						reply = msg.createReply();
+						reply.setPerformative(ACLMessage.AGREE);
+						okRR = true;
+					} else {
+			        	messagesQueue.add(msg);
+			        }
+				}catch (Exception e){
+					messagesQueue.add(msg);
+				}
+			}
+			
+	        messagesQueue.endRetrieval();
+	        
+			if( reply != null){
+				send(reply);
+			}else{
+				showMessage("No movements message found!!");
+			}
+			
+			
+		}
+	
+
+		
+	}
 //		/**
 //		 * Constructor for the <code>RequestResponseBehaviour</code> class.
 //		 * @param myAgent The agent owning this behaviour
 //		 * @param mt Template to receive future responses in this conversation
 //		 */
-//		public InitialRequestResponseBehaviour(CentralAgent myAgent, MessageTemplate mt) {
+//		public RequestResponseBehaviour(CentralAgent myAgent, MessageTemplate mt) {
 //			super(myAgent, mt);
 //			showMessage("Waiting REQUESTs from authorized agents");
 //		}
@@ -404,10 +474,7 @@ public class CentralAgent extends Agent {
 //			try {
 //				
 //				Object contentRebut = (Object)msg.getContent();
-//				if(contentRebut.equals("Initial request")) {
-//					showMessage("Initial request received");
-//					reply.setPerformative(ACLMessage.AGREE);
-//				} else if(/*turnLastMap < game.getTurn() && */processMovements(msg.getContentObject())) {
+//				if(processMovements(msg.getContentObject())) {
 //					turnLastMap = game.getTurn();
 //					showMessage("Movements applied.");
 //					reply.setPerformative(ACLMessage.AGREE);
@@ -430,24 +497,31 @@ public class CentralAgent extends Agent {
 //		 * @return ACLMessage to be sent as a result notification (i.e. one of
 //		 * inform, failure).
 //		 */
-//		protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
-//
-//			// it is important to make the createReply in order to keep the same context of
-//			// the conversation
-//			ACLMessage reply = msg.createReply();
-//			reply.setPerformative(ACLMessage.INFORM);
-//
-//			try {
-//				reply.setContentObject(game.getInfo());
-//			} catch (Exception e) {
-//				reply.setPerformative(ACLMessage.FAILURE);
-//				System.err.println(e.toString());
-//				e.printStackTrace();
-//			}
-//			//showMessage("Answer sent"); //+reply.toString());
-//			return reply;
-//
-//		} //endof prepareResultNotification
+//		@Override
+//		protected ACLMessage prepareResultNotification(ACLMessage request,
+//				ACLMessage response) throws FailureException {
+//			// TODO Auto-generated method stub
+//			return super.prepareResultNotification(request, response);
+//		}
+//		
+////		protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
+////
+////			// it is important to make the createReply in order to keep the same context of
+////			// the conversation
+////			ACLMessage reply = msg.createReply();
+////			reply.setPerformative(ACLMessage.INFORM);
+////
+////			try {
+////				reply.setContentObject(game.getInfo());
+////			} catch (Exception e) {
+////				reply.setPerformative(ACLMessage.FAILURE);
+////				System.err.println(e.toString());
+////				e.printStackTrace();
+////			}
+////			//showMessage("Answer sent"); //+reply.toString());
+////			return reply;
+////
+////		} //endof prepareResultNotification
 //
 //
 //		/**
@@ -456,89 +530,9 @@ public class CentralAgent extends Agent {
 //		public void reset() {
 //		}
 //
+//		
+//
 //	} //end of RequestResponseBehaviour
-
-
-	private class RequestResponseBehaviour extends AchieveREResponder {
-
-		/**
-		 * Constructor for the <code>RequestResponseBehaviour</code> class.
-		 * @param myAgent The agent owning this behaviour
-		 * @param mt Template to receive future responses in this conversation
-		 */
-		public RequestResponseBehaviour(CentralAgent myAgent, MessageTemplate mt) {
-			super(myAgent, mt);
-			showMessage("Waiting REQUESTs from authorized agents");
-		}
-
-		protected ACLMessage prepareResponse(ACLMessage msg) {
-			/* method called when the message has been received. If the message to send
-			 * is an AGREE the behaviour will continue with the method prepareResultNotification. */
-			
-			showMessage("Message received from" + msg.getSender().getName());
-			ACLMessage reply = msg.createReply();
-			try {
-				
-				Object contentRebut = (Object)msg.getContent();
-				if(processMovements(msg.getContentObject())) {
-					turnLastMap = game.getTurn();
-					showMessage("Movements applied.");
-					reply.setPerformative(ACLMessage.AGREE);
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-			//showMessage("Answer sent"); //: \n"+reply.toString());
-			return reply;
-		} //endof prepareResponse   
-
-		/**
-		 * This method is called after the response has been sent and only when
-		 * one of the following two cases arise: the response was an agree message
-		 * OR no response message was sent. This default implementation return null
-		 * which has the effect of sending no result notification. Programmers
-		 * should override the method in case they need to react to this event.
-		 * @param msg ACLMessage the received message
-		 * @param response ACLMessage the previously sent response message
-		 * @return ACLMessage to be sent as a result notification (i.e. one of
-		 * inform, failure).
-		 */
-		@Override
-		protected ACLMessage prepareResultNotification(ACLMessage request,
-				ACLMessage response) throws FailureException {
-			// TODO Auto-generated method stub
-			return super.prepareResultNotification(request, response);
-		}
-		
-//		protected ACLMessage prepareResultNotification(ACLMessage msg, ACLMessage response) {
-//
-//			// it is important to make the createReply in order to keep the same context of
-//			// the conversation
-//			ACLMessage reply = msg.createReply();
-//			reply.setPerformative(ACLMessage.INFORM);
-//
-//			try {
-//				reply.setContentObject(game.getInfo());
-//			} catch (Exception e) {
-//				reply.setPerformative(ACLMessage.FAILURE);
-//				System.err.println(e.toString());
-//				e.printStackTrace();
-//			}
-//			//showMessage("Answer sent"); //+reply.toString());
-//			return reply;
-//
-//		} //endof prepareResultNotification
-
-
-		/**
-		 *  No need for any specific action to reset this behaviour
-		 */
-		public void reset() {
-		}
-
-		
-
-	} //end of RequestResponseBehaviour
 
 
 	private class SendInfoBehaviour extends OneShotBehaviour{
@@ -624,7 +618,7 @@ public class CentralAgent extends Agent {
 				this.myAgent.addBehaviour(new SendNewDiscoveries((CentralAgent) this.myAgent));
 				
 				// wait for the new positions 
-				this.myAgent.addBehaviour(new RequestResponseBehaviour((CentralAgent) this.myAgent, null));
+				this.myAgent.addBehaviour(new RequestResponseBehaviour((CentralAgent) this.myAgent));
 				
 			} else {
 

@@ -43,6 +43,9 @@ public class HarvesterAgent extends Agent {
 	
 	private AStar astar;
 
+	
+	private int carriedGarbage = 0;
+	
 	// array storing the not handled messages
 	private MessagesList messagesQueue = new MessagesList(this);
 
@@ -299,13 +302,19 @@ public class HarvesterAgent extends Agent {
 						        	ACLMessage reply2 = reply.createReply();
 						  	      	reply2.setPerformative(ACLMessage.INFORM);
 						  	      	try {
+						  	      		int avail_capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
 						  	      		// since the objective is a building, the agent must be at distance 1
-						  	      		if((objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
+						  	      		if(avail_capacity > 0 && (objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
 						  	      				Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1){
 						  	      			showMessage("Curently at objective");
-						  	      			switch (c.getCellType()){
+						  	      			switch (objectivePosition.getCellType()){
 						  	      			case Cell.BUILDING:
-						  	      				showMessage("TODO: get GARBAGE");
+						  	      				
+						  	      				if(objectivePosition.getGarbageUnits() > 0){
+						  	      					c.getAgent().setUnits(c.getAgent().getUnits() + 1);
+						  	      					//mapInfo.getInfoAgent(agent_aid).setUnits(mapInfo.getInfoAgent(agent_aid).getUnits() + 1);
+						  	      					objectivePosition.setGarbageUnits(objectivePosition.getGarbageUnits()-1);
+						  	      				}
 						  	      				break;
 						  	      				
 						  	      			case Cell.RECYCLING_CENTER:
