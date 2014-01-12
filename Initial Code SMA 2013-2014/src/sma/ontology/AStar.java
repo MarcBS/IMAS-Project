@@ -22,6 +22,7 @@ public class AStar {
 
 	public SimpleMap map;
 	private AuxInfo mapInfo;
+	private boolean debugging = false;
 	
 	public AStar(AuxInfo mapInfo) {
 		this.mapInfo = mapInfo;
@@ -40,9 +41,9 @@ public class AStar {
 		}
 //		for (int i = 0; i < MAP.length; i++) {
 //			for (int j = 0; j < MAP[0].length; j++) {
-//				System.out.print(MAP[i][j] + " ");
+//				if(debugging) System.out.print(MAP[i][j] + " ");
 //			}
-//			System.out.println();
+//			if(debugging) System.out.println();
 //		}
 		map = new SimpleMap(MAP);
 	}
@@ -62,20 +63,20 @@ public class AStar {
 		Path path = pathFinder.findPath(null, y_in, x_in, y_togo, x_togo);
 
 		if (path == null) {
-			System.out
+			if(debugging) System.out
 					.println("null path because the objective is a building or imposible to find.");
 			return null;
 		} else {
 			int length = path.getLength();
-			System.out.println("Found path of length: " + length + ".");
+			if(debugging) System.out.println("Found path of length: " + length + ".");
 
 			for (int i = 0; i < length; i++) {
-				System.out.println("Move to: " + path.getY(i) + ","
+				if(debugging) System.out.println("Move to: " + path.getY(i) + ","
 						+ path.getX(i) + ".");
 			}
 			Cell positionToReturn = cells[path.getY(1)][path.getX(1)];
 
-			System.out.println("cell type is ="+positionToReturn);
+			if(debugging) System.out.println("cell type is ="+positionToReturn);
 			return positionToReturn;
 		}
 	}

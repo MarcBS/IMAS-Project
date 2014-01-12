@@ -299,23 +299,36 @@ public class HarvesterAgent extends Agent {
 						        	ACLMessage reply2 = reply.createReply();
 						  	      	reply2.setPerformative(ACLMessage.INFORM);
 						  	      	try {
-						  	      		//TODO
-						  	      		//If the agents have some objective position to go use AStar if not random movement.
-						  	      		if(objectivePosition.getRow() != -1){
-						  	      			
-						  	      			Cell newC = getBestPositionToObjective(mapInfo.getMap(), c, objectivePosition);
-						  	      			if(newC == null || newC == c){
-							  	      			c = getRandomPosition(mapInfo.getMap(), c);
-						  	      			}else{
-						  	      				c = newC;						  	      			
+						  	      		// since the objective is a building, the agent must be at distance 1
+						  	      		if((objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
+						  	      				Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1){
+						  	      			showMessage("Curently at objective");
+						  	      			switch (c.getCellType()){
+						  	      			case Cell.BUILDING:
+						  	      				showMessage("TODO: get GARBAGE");
+						  	      				break;
+						  	      				
+						  	      			case Cell.RECYCLING_CENTER:
+						  	      				showMessage("TODO: recycle GARBAGE");
+						  	      				break;
 						  	      			}
 						  	      		}else{
-						  	      			c = getRandomPosition(mapInfo.getMap(), c);
+							  	      		//If the agents have some objective position to go use AStar if not random movement.
+							  	      		if(objectivePosition.getRow() != -1){
+							  	      			
+							  	      			Cell newC = getBestPositionToObjective(mapInfo.getMap(), c, objectivePosition);
+							  	      			if(newC == null || newC == c){
+								  	      			c = getRandomPosition(mapInfo.getMap(), c);
+							  	      			}else{
+							  	      				c = newC;						  	      			
+							  	      			}
+							  	      		}else{
+							  	      			c = getRandomPosition(mapInfo.getMap(), c);
+							  	      		}
+						  	      			//c = getRandomPosition(mapInfo.getMap(), c);
+	
+						  	      			showMessage("New cell to move "+c);
 						  	      		}
-					  	      			//c = getRandomPosition(mapInfo.getMap(), c);
-
-					  	      			showMessage("New cell to move "+c);
-
 						  	      		reply2.setContentObject(c); //Return a new cell to harvester coordinator
 						  	      	} catch (Exception e1) {
 						  	      		reply2.setPerformative(ACLMessage.FAILURE);

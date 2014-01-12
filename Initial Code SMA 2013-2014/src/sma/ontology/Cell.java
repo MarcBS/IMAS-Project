@@ -23,9 +23,9 @@ import java.io.Serializable;
  */
 public class Cell implements Serializable {
 
-	static public int BUILDING = 1;
-	static public int STREET = 2;
-	static public int RECYCLING_CENTER = 3;
+	static final public int BUILDING = 1;
+	static final public int STREET = 2;
+	static final public int RECYCLING_CENTER = 3;
 
 	private int type;
 
