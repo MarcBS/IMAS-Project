@@ -1,5 +1,7 @@
 package sma.ontology;
 
+import jade.core.AID;
+
 import java.util.*;
 import java.io.Serializable;
 
@@ -72,6 +74,12 @@ public class Cell implements Serializable {
 		return this.type;
 	}
 
+	public void removeAgent(AID currentAgent) {
+        if(this.agent != null && !this.agent.getAID().equals(currentAgent)){
+                this.agent = null;
+        }
+	}
+	
 	public void setCellType(int newType) throws Exception {
 		if ((newType != BUILDING) && (newType != STREET)
 				&& (newType != RECYCLING_CENTER))

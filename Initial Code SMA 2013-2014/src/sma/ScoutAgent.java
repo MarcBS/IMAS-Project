@@ -61,11 +61,24 @@ public class ScoutAgent extends Agent {
 	private int patrollPoint = 0;
 	private boolean sign=true;
 	private Point objectivePoint;
+	private AID myAID;
+	private HashMap<Integer, int[]> moviment = new HashMap<Integer, int[]>();
+	private final int NORT = 1, SUD = 2, EST = 3, WEST = 4;
+	boolean has_collision = false, cantMove = false;
+	int contrari_colisio = 0;
+	private AID preference_over = null;
+	private boolean followingOptimalPath = true;
+	private Cell lastOptimalPoint = null;
 		
 	AStar astar;
 
 	public ScoutAgent(){
 		 super();
+		 int[] N = {1,0}, E={0,1}, S = {-1,0}, W= {0,-1};
+			moviment.put(NORT, N);
+			moviment.put(SUD, S);
+			moviment.put(EST, E);
+			moviment.put(WEST, W);
 	}
 	/**
 	   * A message is shown in the log area of the GUI 
@@ -82,6 +95,8 @@ public class ScoutAgent extends Agent {
 	}
 	
 	protected void setup(){
+		
+		 this.myAID = getAID();
 		
 		/**** Very Important Line (VIL) *********/
 	    this.setEnabledO2ACommunication(true, 1);
@@ -124,15 +139,18 @@ public class ScoutAgent extends Agent {
 	    };
 	    
 	    // Behaviour to receive first AuxInfo and DelimitingZone where it will have to patrol.
-	    fsm.registerFirstState(new InitialRecieve(this, scoutCoordinatorAgent), "STATE_1");
+        fsm.registerFirstState(new InitialRecieve(this, scoutCoordinatorAgent), "STATE_1");
 	    // Behaviour to send the list of garbage positions that is has found in this turn.
 	    fsm.registerState(new SendGarbagePositions(this, scoutCoordinatorAgent), "STATE_2");
 	    // Behaviour to receive AuxInfo for each turn.
 	    fsm.registerState(new RecieveGameInfo(this, scoutCoordinatorAgent), "STATE_3");
+	    // Behaviour to decide where to move and send that information to the ScoutCoordinator
+ 		fsm.registerState(new MoveAgent(this, scoutCoordinatorAgent), "STATE_4");
 	    
-	    fsm.registerDefaultTransition("STATE_1", "STATE_2");
-	    fsm.registerDefaultTransition("STATE_2", "STATE_3");
-	    fsm.registerDefaultTransition("STATE_3", "STATE_2");
+ 		fsm.registerDefaultTransition("STATE_1", "STATE_2");
+ 		fsm.registerDefaultTransition("STATE_2", "STATE_4");
+ 		fsm.registerDefaultTransition("STATE_4", "STATE_3");
+ 		fsm.registerDefaultTransition("STATE_3", "STATE_2");
 	    
 	    addBehaviour(fsm);
 	}	 
@@ -200,8 +218,8 @@ public class ScoutAgent extends Agent {
 						  	      	reply2.setPerformative(ACLMessage.INFORM);
 						  	      	Cell c = null;
 						  	      	try {
-						  	      		AID agent_aid = this.myAgent.getAID();
-						  	      		c = auxInfo.getAgentCell(agent_aid);
+						  	      		AID myAID = this.myAgent.getAID();
+						  	      		c = auxInfo.getAgentCell(myAID);
 						  	      		
 						  	      		/**
 						  	      		 * Create the patrol zone with the bounds of the delimiting zone 
@@ -309,6 +327,146 @@ public class ScoutAgent extends Agent {
 	}
 	
 	
+	protected class MoveAgent extends SimpleBehaviour {
+		private AID receptor;
+		
+		public MoveAgent(Agent a, AID r){
+			super(a);
+			this.receptor = r;
+		}
+		
+		private Cell moveNormally(){
+			AID myAID = this.myAgent.getAID();
+			Cell c = auxInfo.getAgentCell(myAID);
+			
+  	      		int c_x = c.getRow();
+  	      		int c_y = c.getColumn();
+  	      							  	      		
+  	      		//Case when you don't have objective point
+  	      		if(objectivePoint==null){
+  	      			//If you have not got a objective you will follow the patrolling path.
+  	      			Point patrollMovement= patrollPath.get(patrollPoint);
+  	      			
+	  	      		//newPositionCell.addAgent(c.getAgent()); //Save infoagent to the new position
+	  	      		showMessageWithBoolean(debuggingPatrolingPath, "Patrolling path");
+  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
+	  	      		
+  	      			//Update the pointer in the patrollPath
+  	      			if(sign){
+	  	      			patrollPoint++;
+  	      			}else{
+	  	      			patrollPoint--;
+  	      			}
+	  	      		
+	  	      		//Check if the agent arrives on the final o on the initially of the array of patroll path
+	  	      		if((patrollPoint<0) || (patrollPoint==patrollPath.size())){
+	  	      			sign = !sign; //
+		  	      		if(sign){
+		  	      			patrollPoint++;
+		  	      			patrollPoint++;
+	  	      			}else{
+		  	      			patrollPoint--;
+		  	      			patrollPoint--;
+	  	      			}
+	  	      		}
+  	      		//Case when you have objective point
+  	      		}else{
+	      				Point UL = checkInitialPosition(patrolZone.getUL());
+  	      			if((objectivePoint.getX()==c_x) && (objectivePoint.getY()==c_y)){
+  	      				objectivePoint = null;
+	  	      			Point patrollMovement = patrollPath.get(patrollPoint);
+	  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
+	  	      			
+	  	      			//Check if the patroll movement is possible or not (if not occupated)
+	  	      			if((patrollMovement.x != c.getRow()) && (patrollMovement.y != c.getColumn())){
+	  	      				objectivePoint = patrollMovement; //Save the patroll movement as to the new objective because you do not follow the patrol path.
+	  	      			}
+	  	      			
+	  	      			//Update the pointer in the patrollPath
+	  	      			if(sign){
+		  	      			patrollPoint++;
+	  	      			}else{
+		  	      			patrollPoint--;
+	  	      			}
+	  	      			if(patrollPoint<0 && patrollPoint>=patrollPath.size()){
+		  	      			System.out.println("******Change direction*******");
+		  	      			sign = !sign; //
+			  	      		if(sign){
+			  	      			patrollPoint++;
+		  	      			}else{
+			  	      			patrollPoint--;
+		  	      			}
+	  	      			}
+  	      			}else{
+		  	      		c = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
+  	      			}
+  	      		}
+  	      		
+  	      		if(c == null){
+	  	      		try {
+						c = getRandomPosition(auxInfo.getMap(), c);
+					} catch (IOException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+  	      		}	
+  	      		
+  	      		return c;
+  	      	} 
+		
+		public void action()
+		{
+			Cell actualPosition = auxInfo.getAgentCell(myAID);
+		    
+			// Collision avoidance module
+            Cell c = checkCollisions(auxInfo.getMap(), actualPosition);
+
+            // Move normally
+            if(c == null){
+                    if(followingOptimalPath){
+                            c = moveNormally();
+                    } else { // we have recently been avoiding a collision
+                            followingOptimalPath = true;
+                            // TODO: modify the optimal path adding the steps to go back to the lastOptimalPoint!!
+                            objectivePoint = new Point(lastOptimalPoint.getRow(), lastOptimalPoint.getColumn());
+                            c = moveNormally();
+                    }
+            } else if(followingOptimalPath) { // We are avoiding a collision and we where recently following the optimal path
+                    followingOptimalPath = false;
+                    lastOptimalPoint = auxInfo.getAgentCell(this.myAgent.getAID());
+                    
+            }
+				
+           
+            // Send the cell
+            
+            ACLMessage reply2 = new ACLMessage(ACLMessage.REQUEST);
+            reply2.clearAllReceiver();
+            reply2.addReceiver(receptor);
+            //reply2.setProtocol(InteractionProtocol.FIPA_REQUEST);
+            reply2.setPerformative(ACLMessage.INFORM);
+            try {
+				reply2.setContentObject(c);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} //Return a new cell to harvester coordinator
+            send(reply2);
+            showMessage("Sending the cell position to "+receptor);		
+		}
+
+		@Override
+		public boolean done() {
+			// TODO Auto-generated method stub
+			return true;
+		}
+		
+		public int onEnd(){
+			return 0;
+	    }	
+	}
+	
+	
 	/**
 	 * 
 	 * @author David Sanchez Pinsach 
@@ -356,86 +514,6 @@ public class ScoutAgent extends Agent {
 							try {
 								auxInfo = (AuxInfo) reply.getContentObject(); // Getting object with the information about the game
 							    showMessage("Receiving game info from "+receptor);
-							    AID agent_aid = this.myAgent.getAID();
-								Cell c = auxInfo.getAgentCell(agent_aid);
-								// Send the cell
-					        	ACLMessage reply2 = reply.createReply();
-					  	      	reply2.setPerformative(ACLMessage.INFORM);
-					  	      	try {
-					  	      		int c_x = c.getRow();
-					  	      		int c_y = c.getColumn();
-					  	      							  	      		
-					  	      		//Case when you don't have objective point
-					  	      		if(objectivePoint==null){
-					  	      			//If you have not got a objective you will follow the patrolling path.
-					  	      			Point patrollMovement= patrollPath.get(patrollPoint);
-					  	      			
-						  	      		//newPositionCell.addAgent(c.getAgent()); //Save infoagent to the new position
-						  	      		showMessageWithBoolean(debuggingPatrolingPath, "Patrolling path");
-					  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
-						  	      		
-					  	      			//Update the pointer in the patrollPath
-					  	      			if(sign){
-						  	      			patrollPoint++;
-					  	      			}else{
-						  	      			patrollPoint--;
-					  	      			}
-						  	      		
-						  	      		//Check if the agent arrives on the final o on the initially of the array of patroll path
-						  	      		if((patrollPoint<0) || (patrollPoint==patrollPath.size())){
-						  	      			sign = !sign; //
-							  	      		if(sign){
-							  	      			patrollPoint++;
-							  	      			patrollPoint++;
-						  	      			}else{
-							  	      			patrollPoint--;
-							  	      			patrollPoint--;
-						  	      			}
-						  	      		}
-					  	      		//Case when you have objective point
-					  	      		}else{
-				  	      				Point UL = checkInitialPosition(patrolZone.getUL());
-					  	      			if((objectivePoint.getX()==c_x) && (objectivePoint.getY()==c_y)){
-					  	      				objectivePoint = null;
-						  	      			Point patrollMovement = patrollPath.get(patrollPoint);
-						  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
-						  	      			
-						  	      			//Check if the patroll movement is possible or not (if not occupated)
-						  	      			if((patrollMovement.x != c.getRow()) && (patrollMovement.y != c.getColumn())){
-						  	      				objectivePoint = patrollMovement; //Save the patroll movement as to the new objective because you do not follow the patrol path.
-						  	      			}
-						  	      			
-						  	      			//Update the pointer in the patrollPath
-						  	      			if(sign){
-							  	      			patrollPoint++;
-						  	      			}else{
-							  	      			patrollPoint--;
-						  	      			}
-						  	      			if(patrollPoint<0 && patrollPoint>=patrollPath.size()){
-							  	      			System.out.println("******Change direction*******");
-							  	      			sign = !sign; //
-								  	      		if(sign){
-								  	      			patrollPoint++;
-							  	      			}else{
-								  	      			patrollPoint--;
-							  	      			}
-						  	      			}
-					  	      			}else{
-							  	      		c = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
-					  	      			}
-					  	      		}
-					  	      		
-					  	      		if(c == null){
-						  	      		c = getRandomPosition(auxInfo.getMap(), c);
-					  	      		}
-					  	      		reply2.setContentObject(c); //Return a new cell to scout coordinator
-					  	      		
-					  	      	} catch (Exception e1) {
-					  	      		reply2.setPerformative(ACLMessage.FAILURE);
-					  	      		System.err.println(e1.toString());
-					  	      	}
-					  	      	send(reply2);
-								showMessage("Sending the cell ["+c.getRow()+","+c.getColumn()+"] position to "+receptor);
 								okInfo = true;
 							} catch (UnreadableException e) {
 								messagesQueue.add(reply);
@@ -477,60 +555,28 @@ public class ScoutAgent extends Agent {
 		
 		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
 		
-		newPosition = checkIfPositionIsOccupied(newPosition, cells, actualPosition);
+		try {
+			newPosition.removeAgent(this.myAID);
+			newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+		} catch (Exception e) {
+			e.printStackTrace();
+		} 
+		
+		//newPosition = checkIfPositionIsOccupied(newPosition, cells, actualPosition);
 		
 		return newPosition;
 	}
 
 	
-	private Cell checkIfPositionIsOccupied(Cell newPosition, Cell[][] cells, Cell actualPosition) {
-		if(newPosition != null){
-			//The new position is occupied by someone?
-			if(newPosition.isThereAnAgent()){
-				switch (newPosition.getAgent().getAgentType()){
-					case InfoAgent.SCOUT:
-						// Compare the ID's of each scout. The bigger one will be moved to desired position
-						int s1 = auxInfo.getInfoAgent(this.scoutCoordinatorAgent).getAID().hashCode();
-						int s2 = newPosition.getAgent().getAID().hashCode();
-						if (s1 > s2){
-							try {
-								newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); 
-							} catch (Exception e) {
-								showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
-							}
-						}else{
-							newPosition = moveToFreePlace(cells, actualPosition, newPosition, auxInfo.getInfoAgent(this.getAID()));
-							try {
-								newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
-							} catch (Exception e) {
-								e.printStackTrace();
-							} 
-						}
-						break;
-					case InfoAgent.HARVESTER:
-						newPosition = moveToFreePlace(cells, actualPosition, newPosition, auxInfo.getInfoAgent(this.getAID()));
-						try {
-							newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
-						} catch (Exception e) {
-							e.printStackTrace();
-						} 
-						break;
-					}
-			}else{
-				try {
-					newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
-				} catch (Exception e) {
-					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
-				}
-			}
-		}else{
-			newPosition = moveToFreePlace(cells, actualPosition, newPosition, auxInfo.getInfoAgent(this.getAID()));
-			try {
-				newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
-			} catch (Exception e) {
-				e.printStackTrace();
-			} 
-		}		
+	private Cell checkIfPositionIsOccupied(Cell newPosition, Cell[][] cells, Cell actualPosition) 
+	{
+		newPosition.removeAgent(this.getAID());
+		try {
+			newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 		return newPosition;
 	}
 	private Cell moveToFreePlace(Cell[][] cells, Cell actualPosition, Cell newPosition, InfoAgent infoAgent) {
@@ -597,11 +643,23 @@ public class ScoutAgent extends Agent {
 			{ 
 				newPosition = map[xi][yi];
 				if(Cell.STREET == newPosition.getCellType() )	//Check the limits of the map
-				{ 
+				{
+					
+					try {
+						showMessage("Position before moving "+"["+x+","+y+"]");
+						newPosition.removeAgent(this.myAID);
+						newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+						positionToReturn = newPosition;
+						//actualPosition.removeAgent(actualPosition.getAgent());
+					} catch (Exception e) {
+						showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+					}
+					trobat = true;
+					
 					/* If there is a scout agent in front of */
-					if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT)
+					/*if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT)
 					{
-						/* Compare the ID's of each scout. The bigger one will be moved to desired position*/
+						 Compare the ID's of each scout. The bigger one will be moved to desired position
 						int h1 = auxInfo.getInfoAgent(this.scoutCoordinatorAgent).getAID().hashCode();
 						int h2 = newPosition.getAgent().getAID().hashCode();
 						if (h1 > h2)
@@ -617,13 +675,13 @@ public class ScoutAgent extends Agent {
 							trobat = true;
 						}
 					}
-					/* If there is a harvester agent in front of */
+					 If there is a harvester agent in front of 
 					else if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.HARVESTER)
 					{
 						// Do nothing.
 						
 					}
-					/* If there is not an agent */
+					 If there is not an agent 
 					else
 					{
 						try {
@@ -635,7 +693,7 @@ public class ScoutAgent extends Agent {
 							showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
 						}
 						trobat = true;		
-					}
+					}*/
 				}
 			}
 		}	
@@ -870,5 +928,370 @@ public class ScoutAgent extends Agent {
 		possibleMovements.add(down);
 		
 		return checkBuilding(possibleMovements);
+	}
+	
+	private int mapPosWithDirection(int[] pos, Cell actualPos)
+	{
+		int x = pos[0], y = pos[1], actual_x = actualPos.getRow(), actual_y = actualPos.getColumn();
+		
+		int x_dif = actual_x - x;
+		int y_dif = actual_y - y;
+		
+		if (x_dif == 1 && y_dif == 0)
+			return this.NORT;
+		if (x_dif == 0 && y_dif == 1)
+			return this.EST;
+		if (x_dif == -1 && y_dif == 0)
+			return this.SUD;
+		if ( x_dif == 0 && y_dif == -1)
+			return this.WEST;
+		
+		System.err.println("Position not correct");
+		return -1;
+	}
+	
+	private int getOppositeDirection (int direction)
+	{
+		if (direction == this.NORT)
+			return this.SUD;
+		if (direction == this.EST)
+			return this.WEST;
+		if (direction == this.SUD)
+			return this.NORT;
+		if (direction == this.WEST)
+			return this.EST;
+		
+		System.err.println("Direction not correct");
+		return -1;
+	}
+	
+	/*
+	 * Return a Cell to move in order to avoid collitions. Return null when there not exist collisions.
+	 */
+	private Cell checkCollisions(Cell[][] map, Cell actualPosition)
+	{
+		Cell positionToReturn = null;
+		
+		if (!this.has_collision)
+		{
+			ArrayList<int[]> listColisions = detectCollision(map, actualPosition);
+			if ( !listColisions.isEmpty())
+			{
+				for (int[] col : listColisions)
+				{
+					int xi = col[0], yi = col[1];
+					InfoAgent other_agent = map[xi][yi].getAgent();
+					
+					if (other_agent.hasCollision() && other_agent.getAID() != this.preference_over)
+					{
+						this.has_collision = true;
+						this.preference_over = null;
+						int other_direction = mapPosWithDirection(col, actualPosition);
+						this.contrari_colisio = getOppositeDirection(other_direction);
+					}
+					else if (!applyPolitic(col, map) && !this.cantMove)
+					{
+						this.has_collision = true;
+						this.preference_over = null;
+						int other_direction = mapPosWithDirection(col, actualPosition);
+						this.contrari_colisio = getOppositeDirection(other_direction);
+					}
+					else if (applyPolitic(col, map))
+					{
+						this.preference_over = other_agent.getAID();
+						if (other_agent.cantMove())
+						{
+							this.has_collision = true;
+							this.preference_over = null;
+							int other_direction = mapPosWithDirection(col, actualPosition);
+							this.contrari_colisio = getOppositeDirection(other_direction);
+						}
+					}
+				}
+			}
+			else 
+			{
+				this.has_collision = false;
+				this.contrari_colisio = -1;
+				this.cantMove = false;
+			}
+		}
+		else
+		{
+			ArrayList<int[]> listColisions = detectCollision(map, actualPosition);
+			if ( listColisions.isEmpty())
+			{
+				this.has_collision = false;
+				this.contrari_colisio = -1;
+				//this.cantMove = false; ???
+			}
+			else if (!listColisions.isEmpty() && this.cantMove)
+			{
+				for (int[] col : listColisions)	// Aquest for esta be????
+				{
+					int xi = col[0], yi = col[1];
+					InfoAgent other_agent = map[xi][yi].getAgent();
+					
+					this.has_collision = false;
+					this.contrari_colisio = -1;
+					this.preference_over = other_agent.getAID();
+				}
+			}
+			else if(!listColisions.isEmpty()) // if there is any collision
+			{
+				for (int[] col : listColisions) // for each collisions
+				{
+					int xi = col[0], yi = col[1];
+					InfoAgent other_agent = map[xi][yi].getAgent();
+					if (other_agent.cantMove()) // if the other agent can't move, then we have to give him priority
+					{
+						this.has_collision = true;
+						this.preference_over = null;
+						int other_direction = mapPosWithDirection(col, actualPosition);
+						this.contrari_colisio = getOppositeDirection(other_direction);
+						this.cantMove = true;
+					}
+				}		
+			}	
+		}
+		
+		// Let's decide where to move
+		if (this.has_collision)
+		{
+			if (this.contrari_colisio == this.NORT || this.contrari_colisio == this.SUD)
+			{
+				int directionToMove;
+				
+				// Random movement to contrari direction
+				Random r = new Random();
+				if ( r.nextInt(1) == 1 )
+					directionToMove = this.EST;	
+				else
+					directionToMove = this.WEST;
+				
+				if (canMoveToCell(actualPosition, directionToMove, map))
+				{
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				else if ( canMoveToCell(actualPosition, getOppositeDirection(directionToMove), map) )
+				{
+					directionToMove = getOppositeDirection(directionToMove);
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				// MOVE TO CONTRARI COLISIO
+				else if ( canMoveToCell(actualPosition, contrari_colisio, map) )
+				{
+					directionToMove = contrari_colisio;
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				
+				// CAS EN QUE HI HA PARETS
+				else if ( isSurroundedByWalls(actualPosition,map) )
+				{
+					this.cantMove = true;
+					positionToReturn = actualPosition;
+				}
+			}
+			
+			
+			else if (this.contrari_colisio == this.EST || this.contrari_colisio == this.WEST)
+			{
+				int directionToMove;
+				
+				// Random movement to contrari direction
+				Random r = new Random();
+				if ( r.nextInt(1) == 1 )
+					directionToMove = this.NORT;	
+				else
+					directionToMove = this.SUD;
+				
+				if (canMoveToCell(actualPosition, directionToMove, map))
+				{
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				else if ( canMoveToCell(actualPosition, getOppositeDirection(directionToMove), map) )
+				{
+					directionToMove = getOppositeDirection(directionToMove);
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				// MOVE TO CONTRARI COLISIO
+				else if ( canMoveToCell(actualPosition, contrari_colisio, map) )
+				{
+					directionToMove = contrari_colisio;
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				
+				// CAS EN QUE HI HA PARETS
+				else if ( isSurroundedByWalls(actualPosition,map) )
+				{
+					this.cantMove = true;
+					positionToReturn = actualPosition;
+				}
+			}
+			
+			// Update info agent in the new cell
+			if (positionToReturn != null)
+			{
+				positionToReturn.removeAgent(this.myAID);
+				try {
+					positionToReturn.addAgent(auxInfo.getInfoAgent(this.getAID()));
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				} //Save infoagent to the new position
+			}
+		}
+		
+		else // WE ARE GONNA MOVE OPTIMAL WAY
+		{
+			positionToReturn =  null; // MEANS THAT THERE IS NO COLLISION
+		}
+		
+		// Update INFOAGENT
+		InfoAgent thisInfoAgent = auxInfo.getInfoAgent(this.myAID);
+		thisInfoAgent.setHasCollision(this.has_collision); 
+		thisInfoAgent.setCantMove(this.cantMove);
+		
+		return positionToReturn;
+	}
+	
+	private boolean isSurroundedByWalls (Cell actualPosition, Cell[][] map)
+	{
+		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = auxInfo.getMapRows();
+		maxColumns = auxInfo.getMapColumns();
+		
+		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
+		List<int[]> intList = Arrays.asList(nearPlaces);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+		
+		int valid_position = 0, not_street_cells = 0;
+		
+		int[] list = null;
+		// Search a cell street
+		while (arrayList.size() != 0) {
+			Random a = new Random();
+			list = arrayList.remove(a.nextInt(arrayList.size()));
+
+			xi = list[0];
+			yi = list[1];
+
+			if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+				Cell position = map[xi][yi];
+				valid_position++;
+				if (position.getCellType() != Cell.STREET) {
+					not_street_cells++;
+				}
+			}
+		}
+		// If the agent has only 1 factible movement and the other non valid position are street cells, then the agent is surrounded by walls
+		if (valid_position - not_street_cells == 1)
+			return true;
+		else return false;
+	}
+	
+	private boolean canMoveToCell (Cell actualPosition, int DIRECTION, Cell[][] map)
+	{
+		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = auxInfo.getMapRows();
+		maxColumns = auxInfo.getMapColumns();
+		
+		int[] list = moviment.get(DIRECTION);
+		xi = list[0] + x;
+		yi = list[1] + y;
+			
+		if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+			Cell dest = map[xi][yi];
+			if (dest.getCellType() == Cell.STREET) {
+				if(!dest.isThereAnAgent())
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	private ArrayList<int[]> detectCollision (Cell[][] map, Cell actualPosition)
+	{
+		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = auxInfo.getMapRows();
+		maxColumns = auxInfo.getMapColumns();
+		
+		ArrayList<int[]> list_colisions = new ArrayList<int[]>();
+		
+		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
+		List<int[]> intList = Arrays.asList(nearPlaces);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+		
+		int[] list = null;
+		// Search a cell street
+		while (arrayList.size() != 0) {
+			Random a = new Random();
+			list = arrayList.remove(a.nextInt(arrayList.size()));
+
+			xi = list[0];
+			yi = list[1];
+
+			if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+				Cell position = map[xi][yi];
+				if (position.getCellType() == Cell.STREET) {
+					if(position.isThereAnAgent())
+					{
+						int[] idx_colision = {xi,yi};
+						list_colisions.add(idx_colision);
+					}
+				}
+			}
+		}
+		
+		return list_colisions;
+	}
+	
+	private boolean applyPolitic(int[] colision_pos, Cell[][] map)
+	{
+		int xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = auxInfo.getMapRows();
+		maxColumns = auxInfo.getMapColumns();
+		Cell newPosition;
+		
+		xi = colision_pos[0]; 
+		yi = colision_pos[1];
+		
+		if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns)
+		{
+			newPosition = map[xi][yi];
+			if(Cell.STREET == newPosition.getCellType() )	//Check the limits of the map
+			{ 
+				/* If there is a scout agent in front of */
+				if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT)
+				{
+					 /*Compare the ID's of each scout. The bigger one will be moved to desired position*/
+					int h1 = auxInfo.getInfoAgent(this.myAID).getAID().hashCode();
+					int h2 = newPosition.getAgent().getAID().hashCode();
+					if (h1 > h2)
+					{
+						return true;
+					}
+					else
+						return false;
+				}
+				 /*If there is a harvester agent in front of */
+				else if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.HARVESTER)
+				{
+					return false;	
+				}
+				 /*If there is not an agent*/ 
+				else
+				{
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 }

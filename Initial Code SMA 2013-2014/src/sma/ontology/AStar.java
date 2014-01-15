@@ -117,6 +117,23 @@ public class AStar {
 		}	
 		return objectivePosition;
 	}
+	
+	public Path getFullPath(Cell[][] cells, Cell actualPosition, Cell objectivePosition){
+        
+        if(objectivePosition.getCellType() != Cell.STREET){
+                objectivePosition = getNearObjectStreetPosition(cells, objectivePosition);
+        }
+       
+        int x_in = actualPosition.getRow(), y_in = actualPosition.getColumn();
+        int x_togo = objectivePosition.getRow(), y_togo = objectivePosition
+                        .getColumn();
+
+        AStarPathFinder pathFinder = new AStarPathFinder(map, MAX_PATH_LENGTH,
+                        false);// Diagonal movement not allowed false, true allowed
+        Path path = pathFinder.findPath(null, y_in, x_in, y_togo, x_togo);
+       
+        return path;
+	}
 
 }
 
