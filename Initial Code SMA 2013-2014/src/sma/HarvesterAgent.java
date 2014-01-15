@@ -13,6 +13,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.UnreadableException;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -30,8 +31,13 @@ import sma.ontology.InfoAgent;
  *
  *	Harvester agents class.
  */
-public class HarvesterAgent extends Agent {
+public class HarvesterAgent extends Agent implements Serializable{
 	
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+
 	// Indicates if we want to show the debugging messages
 	private boolean debugging = true;
 
@@ -43,12 +49,15 @@ public class HarvesterAgent extends Agent {
 	
 	private AStar astar;
 
+	private boolean randomMovement = true;
 	
 	private int carriedGarbage = 0;
 	
 	// array storing the not handled messages
 	private MessagesList messagesQueue = new MessagesList(this);
 
+	
+	private ArrayList<Cell> objectives = new ArrayList<Cell>();
 	public HarvesterAgent(){}
 	
 	/**
@@ -310,15 +319,74 @@ public class HarvesterAgent extends Agent {
 						  	      			switch (objectivePosition.getCellType()){
 						  	      			case Cell.BUILDING:
 						  	      				
-						  	      				if(objectivePosition.getGarbageUnits() > 0){
-						  	      					c.getAgent().setUnits(c.getAgent().getUnits() + 1);
-						  	      					//mapInfo.getInfoAgent(agent_aid).setUnits(mapInfo.getInfoAgent(agent_aid).getUnits() + 1);
-						  	      					objectivePosition.setGarbageUnits(objectivePosition.getGarbageUnits()-1);
+						  	      				if(mapInfo.getCell(objectivePosition.getRow(), objectivePosition.getColumn()).getGarbageUnits() > 0 &&
+						  	      						mapInfo.getAgentCell(agent_aid).getAgent().getMaxUnits() > mapInfo.getAgentCell(agent_aid).getAgent().getUnits()){
+						  	      					
+						  	      					ServiceDescription searchCriterion = new ServiceDescription();
+								  	      			searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
+								  	      			AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
+								  	      			
+								  	      			showMessage("Sending Garbage Info to central.");
+								  	      			ACLMessage info = new ACLMessage(ACLMessage.INFORM);
+								  	      			info.clearAllReceiver();
+								  	      			info.addReceiver(centralAgent);
+								  	      			info.setProtocol(InteractionProtocol.FIPA_REQUEST);
+								  	      			
+								  	      		    try {
+								  	      		    	showMessage(objectivePosition.toString());
+								  	      		    	info.setContentObject((Cell)objectivePosition);
+								  	      		    	send(info);
+								  	      		    } catch (Exception e) {
+								  	      		    	e.printStackTrace();
+								  	      		    }
+		
+								  	      		    
+						  	      				} else{
+						  	      					int points = 0;
+						  	      					Cell recyclingCenter = null;
+							  	      				for(Cell tmp : mapInfo.getRecyclingCenters()){
+								  	      				try {
+								  	      					
+								  	      					if(tmp.getGarbagePoints(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getGarbageType()) >= points){
+								  	      						points = tmp.getGarbagePoints(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getGarbageType());
+								  	      						recyclingCenter = tmp;
+								  	      					}
+								  	      				} catch (Exception e) {}
+							  	      				}
+							  	      				objectivePosition = recyclingCenter;
 						  	      				}
 						  	      				break;
 						  	      				
 						  	      			case Cell.RECYCLING_CENTER:
-						  	      				showMessage("TODO: recycle GARBAGE");
+						  	      				if(mapInfo.getInfoAgent(agent_aid).getUnits() > 0){
+						  	      					
+						  	      					ServiceDescription searchCriterion = new ServiceDescription();
+								  	      			searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
+								  	      			AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
+								  	      			
+								  	      			showMessage("Sending Garbage Info to central.");
+								  	      			ACLMessage info = new ACLMessage(ACLMessage.INFORM);
+								  	      			info.clearAllReceiver();
+								  	      			info.addReceiver(centralAgent);
+								  	      			info.setProtocol(InteractionProtocol.FIPA_REQUEST);
+		
+								  	      		    try {
+								  	      		    	info.setContentObject((Cell)objectivePosition);
+								  	      		    	send(info);
+								  	      		    } catch (Exception e) {
+								  	      		    	e.printStackTrace();
+								  	      		    }
+		
+								  	      		    
+						  	      				} else{
+						  	      					if(objectives.size() > 0){
+						  	      						objectivePosition = objectives.remove(0); // get the first movement of the stack
+						  	      					}else{
+						  	      						objectivePosition.setRow(-1); // use random movement
+						  	      					}
+						  	      					
+						  	      				}
+						  	      				
 						  	      				break;
 						  	      			}
 						  	      		}else{
@@ -327,11 +395,13 @@ public class HarvesterAgent extends Agent {
 							  	      			
 							  	      			Cell newC = getBestPositionToObjective(mapInfo.getMap(), c, objectivePosition);
 							  	      			if(newC == null || newC == c){
+							  	      				randomMovement = true;
 								  	      			c = getRandomPosition(mapInfo.getMap(), c);
 							  	      			}else{
 							  	      				c = newC;						  	      			
 							  	      			}
 							  	      		}else{
+							  	      			randomMovement = true;
 							  	      			c = getRandomPosition(mapInfo.getMap(), c);
 							  	      		}
 						  	      			//c = getRandomPosition(mapInfo.getMap(), c);
@@ -486,7 +556,9 @@ public class HarvesterAgent extends Agent {
 				float tmp_capacity = capacity - auctionInfo.getInfo().getGarbageUnits();
 				if(tmp_capacity == 0){ tmp_capacity = 1;} // if the harvester is full, optimizes the garbage collection
 				//else{tmp_capacity = 1/tmp_capacity;} 
-				bid = 1/distance1 + 1/tmp_capacity + 1/distance2 + points;
+				float num_objectives = 2;
+				if(objectives.size() > 0) num_objectives = 1/objectives.size();
+				bid = 1/distance1 + 1/tmp_capacity + 1/distance2 + points + num_objectives;
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -525,8 +597,13 @@ public class HarvesterAgent extends Agent {
 									showMessage("Winner: " + winner);
 									// update the objective position
 									if(agent_aid.equals(winner)){
-										objectivePosition = auctionInfo.getInfo();
-										showMessage("////////////////////Objective position updated!!");
+										if(randomMovement == true || objectivePosition == null || objectivePosition.getRow() == -1){
+											randomMovement = false;
+											objectivePosition = auctionInfo.getInfo();
+										} else{
+											objectives.add(auctionInfo.getInfo());
+										}
+										showMessage("Objective position updated!!");
 									}
 									okInfo = true;
 									originalInfo = reply;

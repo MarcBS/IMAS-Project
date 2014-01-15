@@ -8,7 +8,7 @@ import jade.core.AID;
  * <p><b>Copyright:</b> Copyright (c) 2013</p>
  * <p><b>Company:</b> Universitat Rovira i Virgili (<a
  * href="http://www.urv.cat">URV</a>)</p>
- * @author David Isern & Joan Albert L�pez
+ * @author David Isern & Joan Albert L���pez
  */
 public class InfoAgent extends Object implements java.io.Serializable {
 
@@ -30,13 +30,31 @@ public class InfoAgent extends Object implements java.io.Serializable {
 	static public int PLASTIC = 1;
 	static public int METAL = 2;
 	static public int PAPER = 3;
+	static public int EMPTY = -1;
 
 	private int currentType = -1;
 
+	/*
+	 * NOT USEFUL
 	public boolean[] getGarbageType() {
 		return garbageType;
-	}
+	}*/
 
+	public String getGarbageType(){
+		if(garbageType[0]){
+			return "G";
+		}else if(garbageType[1]){
+			return "P";
+		}else if(garbageType[2]){
+			return "M";
+		}else if(garbageType[3]){
+			return "A";
+		}else{
+			return "";
+		}
+	}
+	
+	
 	public void setGarbageType(boolean[] garbageType) {
 		this.garbageType = garbageType;
 	}
@@ -60,10 +78,44 @@ public class InfoAgent extends Object implements java.io.Serializable {
 	public int getCurrentType() {
 		return currentType;
 	}
+	
+	public char getcurrentTypeChar(){
+		switch(currentType){
+		case 0:
+			return 'G';
+			
+		case 1:
+			return 'P';
+			
+		case 2:
+			return 'M';
+			
+		case 3:
+			return 'A';
+			
+		default:
+			return '-';
+			
+		}
+	}
+	
+	public void setCurrentType(char type){
+		if(type == 'G'){
+			currentType = 0;
+		}else if(type == 'P'){
+			currentType = 1;
+		}else if(type == 'M'){
+			currentType = 2;
+		}else if(type == 'A'){
+			currentType = 3;
+		}else{
+			currentType = -1;
+		}
+	}
 
 	public void setCurrentType(int type) throws Exception {
 		if ((type != GLASS) && (type != PLASTIC) && (type != METAL)
-				&& (type != PAPER))
+				&& (type != PAPER) && (type != EMPTY))
 			throw new Exception("Unkown type");
 		this.currentType = type;
 	}

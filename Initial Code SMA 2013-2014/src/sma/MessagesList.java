@@ -22,7 +22,7 @@ import java.util.ArrayList;
  * 
  * Synchronization not guaranteed!
  * 
- * @author Marc Bolaños
+ * @author Marc Bolaï¿½os
  *
  */
 public class MessagesList {
@@ -89,6 +89,8 @@ public class MessagesList {
 		in_list = false;
 	}
 	
-	
+	public int size(){
+		return list.size();
+	}
 	
 }

@@ -5,6 +5,7 @@ import java.io.*;
 import java.sql.SQLException;
 import java.sql.ResultSet;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 
 // import jade.util.leap.ArrayList;
@@ -38,7 +39,7 @@ import java.util.*;
 public class CentralAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = false;
+	private boolean debugging = true;
 
 	private sma.gui.GraphicInterface gui;
 	private sma.ontology.InfoGame game;
@@ -55,6 +56,12 @@ public class CentralAgent extends Agent {
 	
 	// array storing the not handled messages
 	private MessagesList messagesQueue = new MessagesList(this);
+	
+	// points of the harvesters
+	
+	private HashMap<AID, Integer> harvester_points = new HashMap<AID, Integer>();
+	
+	
 	
 	private boolean movements_updated = false;
 	
@@ -133,6 +140,7 @@ public class CentralAgent extends Agent {
         	  agents.add( currentGame.getInfo().getCell(x,y));
       	      //Add the harvester aid into the harvester aid list
       	      this.game.getInfo().addHarvester_aid(aid);
+      	      harvester_points.put(aid, 0);
       	      numHarvesters++;
     	  }
       }
@@ -453,6 +461,7 @@ public class CentralAgent extends Agent {
 	        messagesQueue.endRetrieval();
 	        
 			if( reply != null){
+				showMessage("EXIT");
 				send(reply);
 			}else{
 				showMessage("No movements message found!!");
@@ -567,6 +576,109 @@ public class CentralAgent extends Agent {
 
 		
 	}
+	
+	/**
+	 * Reads the movements, applies them and sends an agree reply
+	 * @author Alex Pardo Fernandez
+	 *
+	 */
+	private class UpdateGarbageHarvester extends OneShotBehaviour{
+		
+		public UpdateGarbageHarvester(CentralAgent myAgent) {
+			super(myAgent);
+			
+		}
+		@Override
+		public void action() {
+
+			showMessage("Reading updates from Harvesters.");
+			
+			boolean okRR = false;
+			ACLMessage reply = null;
+			int counter = 0;
+			while(!okRR && counter < messagesQueue.size()){
+				ACLMessage msg = messagesQueue.getMessage();
+				counter++;
+				
+				try {
+					Object contentRebut = (Object)msg.getContentObject();
+					
+					if(msg.getSender().getLocalName().startsWith(harvesterName)){
+						AID senderName = msg.getSender();
+						showMessage("Message from " + msg.getSender().getLocalName());
+						Cell c = game.getInfo().getAgentCell(senderName);
+							
+						Cell b = (Cell) contentRebut;
+						int tmp;
+						switch(b.getCellType()){
+						case Cell.BUILDING:
+							showMessage(Integer.toString(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentType()));
+							if(c.getAgent().getcurrentTypeChar() == b.getGarbageType() || c.getAgent().getCurrentType() == -1){
+								// set harvester garbage type
+								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(b.getGarbageType());
+								// increase the counter for the harvester
+								tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp + 1);
+								// decrease the counter for the building
+								tmp = game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits();
+								game.getInfo().getCell(b.getRow(), b.getColumn()).setGarbageUnits(tmp - 1);
+							} else{
+								System.err.println("Harvester " + senderName + " performing wrong garbage operation");
+							}
+							
+							reply = msg.createReply();
+							reply.setPerformative(ACLMessage.AGREE);
+							
+							break;
+							
+						case Cell.RECYCLING_CENTER:
+							
+							
+							// decrease the counter for the harvester
+							tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+							game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp - 1);
+							if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 0){
+								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
+							}
+							// add the points
+							tmp = harvester_points.remove(senderName);
+							String garbage = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getGarbageType();
+							harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
+							
+							reply = msg.createReply();
+							reply.setPerformative(ACLMessage.AGREE);
+							
+							break;
+							
+						default: 
+								break;
+						}
+						
+					
+				
+					} else {
+			        	messagesQueue.add(msg);
+			        }
+				}catch (Exception e){
+					e.printStackTrace();
+					messagesQueue.add(msg);
+				}
+			}
+			
+	        messagesQueue.endRetrieval();
+	        
+			if( reply != null){
+				send(reply);
+			}else{
+				showMessage("No garbage interaction found.");
+			}
+			
+			
+		}
+	
+
+		
+	}
 
 	/*************************************************************************/
 
@@ -628,6 +740,9 @@ public class CentralAgent extends Agent {
 				
 				// wait for the new positions 
 				this.myAgent.addBehaviour(new RequestResponseBehaviour((CentralAgent) this.myAgent));
+				
+				// look for garbage messages from harvesters
+				this.myAgent.addBehaviour(new UpdateGarbageHarvester((CentralAgent) this.myAgent));
 				
 			} else {
 
