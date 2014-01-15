@@ -40,7 +40,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 	private static final long serialVersionUID = 1L;
 
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = true;
+	private boolean debugging = false;
 
 	private AuxInfo mapInfo;
 
@@ -315,13 +315,15 @@ public class HarvesterAgent extends Agent implements Serializable{
 						  	      	try {
 						  	      		int avail_capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
 						  	      		// since the objective is a building, the agent must be at distance 1
-						  	      		if(avail_capacity > 0 && (objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
-						  	      				Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1){
+						  	      		if((objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
+						  	      				(Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1 ||
+						  	      				(Math.abs(objectivePosition.getRow() - c.getRow()) == 1) && (Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1))){
 						  	      			showMessage("Curently at objective");
 						  	      			switch (objectivePosition.getCellType()){
 						  	      			case Cell.BUILDING:
 						  	      				
-						  	      				if(mapInfo.getCell(objectivePosition.getRow(), objectivePosition.getColumn()).getGarbageUnits() > 0 &&
+						  	      				
+						  	      				if(avail_capacity > 0 && mapInfo.getCell(objectivePosition.getRow(), objectivePosition.getColumn()).getGarbageUnits() > 0 &&
 						  	      						mapInfo.getAgentCell(agent_aid).getAgent().getMaxUnits() > mapInfo.getAgentCell(agent_aid).getAgent().getUnits()){
 						  	      					
 						  	      					ServiceDescription searchCriterion = new ServiceDescription();
@@ -354,7 +356,9 @@ public class HarvesterAgent extends Agent implements Serializable{
 								  	      					}
 								  	      				} catch (Exception e) {}
 							  	      				}
-							  	      				
+							  	      				if(avail_capacity == 0 && objectivePosition.getGarbageUnits() > 0){
+							  	      					objectives.add(0, objectivePosition);
+							  	      				}
 							  	      				objectivePosition = recyclingCenter;
 						  	      				}
 						  	      				break;
@@ -382,7 +386,8 @@ public class HarvesterAgent extends Agent implements Serializable{
 								  	      		    
 						  	      				} else{
 						  	      					if(objectives.size() > 0){
-						  	      						objectivePosition = objectives.remove(0); // get the first movement of the stack
+						  	      						findNextObjective(); // get the next movement, using the Manhattan distance and the position in the stack
+						  	      						//objectivePosition = objectives.remove(0); // get the first movement of the stack
 						  	      					}else{
 						  	      						objectivePosition = null;
 						  	      					}
@@ -455,6 +460,25 @@ public class HarvesterAgent extends Agent implements Serializable{
 			showMessage("STATE_2 return OK");
 			return 0;
 		}
+	}
+	
+	private void findNextObjective(){
+		float best = Float.POSITIVE_INFINITY;
+		int position = 0;
+		int final_pos = 0;
+		Cell curr_pos = mapInfo.getAgentCell(this.getAID());
+		for(Cell o : objectives){
+			float distance = Math.abs(curr_pos.getRow() - o.getRow()) + Math.abs(curr_pos.getColumn() - o.getColumn());
+			distance += position/objectives.size();
+			if(best > distance){
+				best = distance;
+				final_pos = position;
+			}
+			position++;
+		}
+		
+		objectivePosition = objectives.remove(final_pos);
+		System.err.println("NEW OBJECTIVE: "+objectivePosition + "; pos = " + curr_pos);
 	}
 	
 	
