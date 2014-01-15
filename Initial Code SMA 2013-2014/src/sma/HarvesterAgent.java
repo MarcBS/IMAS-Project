@@ -19,6 +19,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 
+import sma.gui.LogPanel;
 import sma.ontology.AStar;
 import sma.ontology.AuxGarbage;
 import sma.ontology.AuxInfo;
@@ -65,6 +66,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 	   * @param str String to show
 	   */
 	private void showMessage(String str) {
+		LogPanel.showMessage(getLocalName() + ": " + str);
 		if(debugging)
 			System.out.println(getLocalName() + ": " + str);
 	}

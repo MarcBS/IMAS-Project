@@ -34,6 +34,7 @@ import jade.lang.acl.ACLMessage;
 import jade.lang.acl.UnreadableException;
 import sma.ScoutCoordinatorAgent.InitialSendToScout;
 import sma.ScoutCoordinatorAgent.RequestGameInfo;
+import sma.gui.LogPanel;
 import sma.ontology.AStar;
 import sma.ontology.AuxInfo;
 import sma.ontology.Cell;
@@ -44,7 +45,7 @@ import sma.ontology.InfoGame;
 public class ScoutAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = false;
+	private boolean debugging = true;
 	private boolean debuggingPatrolingPath = false;
 	
 	private AID scoutCoordinatorAgent;
@@ -72,6 +73,7 @@ public class ScoutAgent extends Agent {
 	   * @param str String to show
 	   */
 	private void showMessage(String str) {
+		LogPanel.showMessage(getLocalName() + ": " + str);
 		if(debugging)
 			System.out.println(getLocalName() + ": " + str);
 	}

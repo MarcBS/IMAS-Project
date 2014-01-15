@@ -4,8 +4,14 @@ import java.lang.*;
 import java.io.*;
 import java.sql.SQLException;
 import java.sql.ResultSet;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.HashMap;
+
+
+
+
+
 
 
 // import jade.util.leap.ArrayList;
@@ -51,6 +57,17 @@ public class CentralAgent extends Agent {
 	private AID coordinatorAgent;
 	private int turnLastMap = 0;
 	
+	//Global variables for the final stats
+	private int newDiscover = 0;
+	private int totalGarbage = 0;
+	private int totalUnitsGarbage = 0;
+	private int haversterUnits;
+	private ArrayList<Integer> gCenters;
+	private HashMap<AID, Integer> harvester_points = new HashMap<AID, Integer>();
+	private int maxPossiblePoints=0;
+
+
+	
 	// stores the new discoveries found
 	private ArrayList newDiscoveries = new ArrayList();
 	
@@ -59,7 +76,6 @@ public class CentralAgent extends Agent {
 	
 	// points of the harvesters
 	
-	private HashMap<AID, Integer> harvester_points = new HashMap<AID, Integer>();
 	
 	
 	
@@ -216,6 +232,10 @@ public class CentralAgent extends Agent {
 		this.coordinatorAgent = UtilsAgents.searchAgent(this, searchCriterion);
 		// searchAgent is a blocking method, so we will obtain always a correct AID
 
+		//Obtain the max gain at each type of garbage
+		gCenters = new ArrayList<Integer>();
+		computeTheMaxScore();
+		
 		// add behaviours
 
 		// we wait for the initialization of the game
@@ -635,21 +655,20 @@ public class CentralAgent extends Agent {
 							
 						case Cell.RECYCLING_CENTER:
 							
-							
 							// decrease the counter for the harvester
 							tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
 							game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp - 1);
+							String garbage = String.valueOf(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentTypeChar());
 							if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 0){
-								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
+							game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
 							}
 							// add the points
 							tmp = harvester_points.remove(senderName);
-							String garbage = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getGarbageType();
 							harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
+							haversterUnits++;
 							
 							reply = msg.createReply();
-							reply.setPerformative(ACLMessage.AGREE);
-							
+							reply.setPerformative(ACLMessage.AGREE);						
 							break;
 							
 						default: 
@@ -712,6 +731,8 @@ public class CentralAgent extends Agent {
 			} else {
 				try {
 					game_finished = true;
+					//Show the stats of the execution
+					showStats();
 					this.stop();
 				} catch (Throwable e) {
 					e.printStackTrace();
@@ -888,6 +909,30 @@ public class CentralAgent extends Agent {
 			b.setGarbageType(type);
 			b.setGarbageUnits(units);
 			
+			//Save the units of the garbage and increment the number of the garbage buildings
+			totalUnitsGarbage = totalUnitsGarbage + units;
+			totalGarbage++;
+			
+			//Save the possible max points and the units of haverster
+			int gain=1;
+			switch(type){
+				case 'G':
+					gain = gCenters.get(0);
+					break;
+				case 'M':
+					gain = gCenters.get(1);
+					break;
+				case 'P':
+					gain = gCenters.get(2);
+					break;
+				case 'A':
+					gain = gCenters.get(3);
+					break;
+			}
+			
+			//int gain =gCenters.get(type);
+			maxPossiblePoints = maxPossiblePoints + gain*units;
+			
 			// set garbage into the map inside auxInfo
 			Cell[][] map = game.getInfo().getMap();
 			map[b.getRow()][b.getColumn()] = b;
@@ -928,6 +973,7 @@ public class CentralAgent extends Agent {
 				// list of true new discoveries (trueDisc) and delete it from
 				// the rest of the lists.
 				if(found){
+					newDiscover++;
 					trueDisc.add((ArrayList)disc.get(i));
 					disc.remove(i);
 					toDelete.add(count);
@@ -943,6 +989,49 @@ public class CentralAgent extends Agent {
 			return trueDisc;
 		}
 
+	}
+	
+	/**
+	 * Method to compute the max score possible at each type of garbage.
+	 */
+	private void computeTheMaxScore(){
+		int maxValue=0, newValue=0;
+		String[] types = {"G","M","P","A"};
+		java.util.List<Cell> centers = game.getInfo().getRecyclingCenters();
+		for(String garbage : types){
+			maxValue = 0;
+			for(Cell c: centers){
+				try {
+					//Get the garbage point of one spefic type of garbage
+					newValue = c.getGarbagePoints(garbage);
+					if(newValue > maxValue){
+						maxValue = newValue;
+					}
+				} catch (Exception e) {
+					showMessage(e.getMessage());
+				}
+			}
+			//Save in the hashmap as key the type of the garbage and the max benefist of this type.
+			gCenters.add(maxValue);
+		}		
+	}
+	
+	private void showStats(){
+		int obtainedPoints = 0;
+		showMessage("\n\n-----------Final stats------------");
+		Collection<Integer> points = harvester_points.values();
+		for(Integer point : points){
+			obtainedPoints = obtainedPoints + point;
+		}
+		double stat1, stat2, stat3;
+		
+		stat1 = ((double)obtainedPoints/(double)maxPossiblePoints)*100;
+		showMessage("Percentage of the number of points obtained over the maximum number of points for this map:"+new DecimalFormat("###.##").format(stat1)+"%");
+		stat2 = ((double)haversterUnits/(double)totalUnitsGarbage)*100;
+		showMessage("Percentage of units of garbage harvested:"+new DecimalFormat("###.##").format(stat2)+"%");
+		stat3 = ((double)newDiscover/(double)totalGarbage)*100;
+		showMessage("Percentage of buildings with garbage discovered: "+new DecimalFormat("###.##").format(stat3)+"%");
+		showMessage("---------------------------------------");
 	}
 
 } //endof class AgentCentral
