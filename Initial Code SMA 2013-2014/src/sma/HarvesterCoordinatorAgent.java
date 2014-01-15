@@ -33,7 +33,7 @@ import jade.lang.acl.UnreadableException;
 public class HarvesterCoordinatorAgent extends Agent {
 
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = false;
+	private boolean debugging = true;;
 	
 	private AID coordinatorAgent;
 	private AuxInfo mapInfo;

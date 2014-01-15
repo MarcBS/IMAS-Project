@@ -75,9 +75,7 @@ public class Cell implements Serializable {
 	}
 
 	public void removeAgent(AID currentAgent) {
-        if(this.agent != null && !this.agent.getAID().equals(currentAgent)){
-                this.agent = null;
-        }
+		this.agent = null;    
 	}
 	
 	public void setCellType(int newType) throws Exception {

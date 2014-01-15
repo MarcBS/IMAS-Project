@@ -151,6 +151,11 @@ public class ScoutAgent extends Agent {
  		fsm.registerDefaultTransition("STATE_2", "STATE_4");
  		fsm.registerDefaultTransition("STATE_4", "STATE_3");
  		fsm.registerDefaultTransition("STATE_3", "STATE_2");
+ 		
+ 		/*fsm.registerDefaultTransition("STATE_1", "STATE_2");
+ 		fsm.registerDefaultTransition("STATE_2", "STATE_3");
+ 		fsm.registerDefaultTransition("STATE_4", "STATE_2");
+ 		fsm.registerDefaultTransition("STATE_3", "STATE_4");*/
 	    
 	    addBehaviour(fsm);
 	}	 
@@ -231,7 +236,12 @@ public class ScoutAgent extends Agent {
 						  	      		objectivePoint = checkInitialPosition(patrolZone.getUL());
 						  	      	
 						  	      		//First movement Following the best position to the path
-					  	      			c = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
+					  	      			Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
+					  	      			
+					  	      			if (newC == null)
+					  	      				newC = getRandomPosition(auxInfo.getMap(), c);
+					  	      			
+					  	      			c = newC;
 					  
 						  	      		//Or random
 						  	      		//c = getRandomPosition(auxInfo.getMap(), c);
@@ -555,12 +565,28 @@ public class ScoutAgent extends Agent {
 		
 		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
 		
-		try {
-			newPosition.removeAgent(this.myAID);
-			newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
-		} catch (Exception e) {
-			e.printStackTrace();
-		} 
+		int xi = newPosition.getRow();
+		int yi = newPosition.getColumn();
+		int maxRows = auxInfo.getMapRows();
+		int maxColumns = auxInfo.getMapColumns();
+		
+		if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns)
+		{
+				Cell position = cells[xi][yi];
+				if (position.getCellType() == Cell.STREET) {
+					try {
+						if (!newPosition.equals(actualPosition))
+						{
+							newPosition.removeAgent(this.myAID);
+							newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+						}
+					} catch (Exception e) {
+						e.printStackTrace();
+					} 
+					
+				}
+		}
+		
 		
 		//newPosition = checkIfPositionIsOccupied(newPosition, cells, actualPosition);
 		
@@ -570,12 +596,15 @@ public class ScoutAgent extends Agent {
 	
 	private Cell checkIfPositionIsOccupied(Cell newPosition, Cell[][] cells, Cell actualPosition) 
 	{
-		newPosition.removeAgent(this.getAID());
-		try {
-			newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
-		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
+		if (!newPosition.equals(actualPosition))
+		{
+			newPosition.removeAgent(this.getAID());
+			try {
+				newPosition.addAgent(auxInfo.getInfoAgent(this.getAID()));
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
 		}
 		return newPosition;
 	}
@@ -647,8 +676,11 @@ public class ScoutAgent extends Agent {
 					
 					try {
 						showMessage("Position before moving "+"["+x+","+y+"]");
-						newPosition.removeAgent(this.myAID);
-						newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+						if (!newPosition.equals(actualPosition))
+						{
+							newPosition.removeAgent(this.myAID);
+							newPosition.addAgent(auxInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+						}
 						positionToReturn = newPosition;
 						//actualPosition.removeAgent(actualPosition.getAgent());
 					} catch (Exception e) {
@@ -1130,7 +1162,7 @@ public class ScoutAgent extends Agent {
 			}
 			
 			// Update info agent in the new cell
-			if (positionToReturn != null)
+			if (positionToReturn != null && !positionToReturn.equals(actualPosition))
 			{
 				positionToReturn.removeAgent(this.myAID);
 				try {
