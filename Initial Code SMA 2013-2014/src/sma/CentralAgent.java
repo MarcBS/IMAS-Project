@@ -39,7 +39,7 @@ import java.util.*;
 public class CentralAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = true;
+	private boolean debugging = false;
 
 	private sma.gui.GraphicInterface gui;
 	private sma.ontology.InfoGame game;
@@ -444,7 +444,8 @@ public class CentralAgent extends Agent {
 				
 				try {
 					Object contentRebut = (Object)msg.getContent();
-					if(processMovements(msg.getContentObject())) {
+
+					if(msg.getContentObject() instanceof ArrayList<?> && processMovements(msg.getContentObject())) {
 						turnLastMap = game.getTurn();
 						showMessage("Movements applied.");
 						reply = msg.createReply();
@@ -454,6 +455,7 @@ public class CentralAgent extends Agent {
 			        	messagesQueue.add(msg);
 			        }
 				}catch (Exception e){
+					e.printStackTrace();
 					messagesQueue.add(msg);
 				}
 			}
@@ -613,7 +615,7 @@ public class CentralAgent extends Agent {
 						switch(b.getCellType()){
 						case Cell.BUILDING:
 							showMessage(Integer.toString(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentType()));
-							if(c.getAgent().getcurrentTypeChar() == b.getGarbageType() || c.getAgent().getCurrentType() == -1){
+							if(c.getAgent().getCurrentTypeChar() == b.getGarbageType() || c.getAgent().getCurrentType() == -1){
 								// set harvester garbage type
 								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(b.getGarbageType());
 								// increase the counter for the harvester

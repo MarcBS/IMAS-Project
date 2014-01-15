@@ -333,7 +333,6 @@ public class HarvesterAgent extends Agent implements Serializable{
 								  	      			info.setProtocol(InteractionProtocol.FIPA_REQUEST);
 								  	      			
 								  	      		    try {
-								  	      		    	showMessage(objectivePosition.toString());
 								  	      		    	info.setContentObject((Cell)objectivePosition);
 								  	      		    	send(info);
 								  	      		    } catch (Exception e) {
@@ -341,18 +340,19 @@ public class HarvesterAgent extends Agent implements Serializable{
 								  	      		    }
 		
 								  	      		    
-						  	      				} else{
+						  	      				} else if (mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getUnits() > 0){
 						  	      					int points = 0;
 						  	      					Cell recyclingCenter = null;
 							  	      				for(Cell tmp : mapInfo.getRecyclingCenters()){
 								  	      				try {
 								  	      					
-								  	      					if(tmp.getGarbagePoints(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getGarbageType()) >= points){
-								  	      						points = tmp.getGarbagePoints(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getGarbageType());
+								  	      					if(tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar())) > points){
+								  	      						points = tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar()));
 								  	      						recyclingCenter = tmp;
 								  	      					}
 								  	      				} catch (Exception e) {}
 							  	      				}
+							  	      				
 							  	      				objectivePosition = recyclingCenter;
 						  	      				}
 						  	      				break;
@@ -382,7 +382,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 						  	      					if(objectives.size() > 0){
 						  	      						objectivePosition = objectives.remove(0); // get the first movement of the stack
 						  	      					}else{
-						  	      						objectivePosition.setRow(-1); // use random movement
+						  	      						objectivePosition = null;
 						  	      					}
 						  	      					
 						  	      				}
@@ -597,12 +597,19 @@ public class HarvesterAgent extends Agent implements Serializable{
 									showMessage("Winner: " + winner);
 									// update the objective position
 									if(agent_aid.equals(winner)){
-										if(randomMovement == true || objectivePosition == null || objectivePosition.getRow() == -1){
+										if(objectives.size() == 0 && randomMovement == true){
 											randomMovement = false;
 											objectivePosition = auctionInfo.getInfo();
 										} else{
 											objectives.add(auctionInfo.getInfo());
 										}
+										/*
+										if(randomMovement == true || objectivePosition == null || objectivePosition.getRow() == -1){
+											randomMovement = false;
+											objectivePosition = auctionInfo.getInfo();
+										} else{
+											objectives.add(auctionInfo.getInfo());
+										}*/
 										showMessage("Objective position updated!!");
 									}
 									okInfo = true;

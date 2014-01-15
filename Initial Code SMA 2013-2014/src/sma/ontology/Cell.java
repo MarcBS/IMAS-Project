@@ -143,7 +143,7 @@ public class Cell implements Serializable {
 		}else if(garbage.equals("A")){
 			return garbagePoints[3];
 		}
-		return 0;
+		return -1;
 	}
 
 	public String getGarbagePointsString() throws Exception {

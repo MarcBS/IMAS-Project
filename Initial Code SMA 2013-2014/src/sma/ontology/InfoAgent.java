@@ -50,7 +50,7 @@ public class InfoAgent extends Object implements java.io.Serializable {
 		}else if(garbageType[3]){
 			return "A";
 		}else{
-			return "";
+			return "-";
 		}
 	}
 	
@@ -79,7 +79,7 @@ public class InfoAgent extends Object implements java.io.Serializable {
 		return currentType;
 	}
 	
-	public char getcurrentTypeChar(){
+	public char getCurrentTypeChar(){
 		switch(currentType){
 		case 0:
 			return 'G';

@@ -221,6 +221,7 @@ public class HarvesterCoordinatorAgent extends Agent {
 						break;
 						
 						case ACLMessage.FAILURE:
+								System.err.println(reply.getSender().getLocalName());
 								System.err.println(getLocalName()
 											+ " Recieved game info unsucceeded. Reason: Performative was FAILURE");
 						break;
@@ -592,7 +593,7 @@ public class HarvesterCoordinatorAgent extends Agent {
 		public void action() {
 			showMessage("STATE_7");
 			if(auctionGarbages.size() > 0){
-				AuxGarbage auctionItem = auctionGarbages.get(0);
+				AuxGarbage auctionItem = auctionGarbages.remove(0);
 				
 				showMessage("Performing an auction");
 				
