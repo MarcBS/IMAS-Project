@@ -825,11 +825,6 @@ public class CentralAgent extends Agent {
 			boolean game_finished = false;
 
 			// Update Turn counter
-			try {
-			    Thread.sleep(400);
-			} catch(InterruptedException ex) {
-			    Thread.currentThread().interrupt();
-			}
 			game.incrTurn();
 			int turn = game.getTurn();
 			if(turn <= game.getGameDuration()){
