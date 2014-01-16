@@ -847,6 +847,7 @@ public class CentralAgent extends Agent {
 					        	messagesQueue.add(msg);
 					        }
 						}catch (Exception e){
+							System.err.println("The message received is from "+ msg.getSender().getLocalName());
 							messagesQueue.add(msg);
 						}
 					}
@@ -1126,7 +1127,7 @@ public class CentralAgent extends Agent {
 				}
 				
 				// Deletes all the found garbages from the list in "game".
-				for(int i : toDelete){
+				for(int i = toDelete.size()-1; i >= 0; i--){
 					list.remove(i);
 				}
 				game.setBuildingsGarbage(list);
