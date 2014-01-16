@@ -1030,7 +1030,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 				positionToReturn.addAgent(mapInfo.getInfoAgent(this.getAID()));
 			} catch (Exception e) {
 				try {
-					positionToReturn.addAgent(actualPosition.getAgent());
+					positionToReturn = actualPosition;
 				} catch (Exception e1) {
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
