@@ -62,6 +62,7 @@ public class ScoutAgent extends Agent {
 	private int patrollPoint = 0;
 	private boolean sign=true;
 	private Point objectivePoint;
+	private boolean patroling = false;
 	private AID myAID;
 	private HashMap<Integer, int[]> moviment = new HashMap<Integer, int[]>();
 	private final int NORT = 1, SUD = 2, EST = 3, WEST = 4;
@@ -386,8 +387,46 @@ public class ScoutAgent extends Agent {
 	  	      		showMessage("Doing patrol.");
   	      		//Case when you have objective point
   	      		}else{
-	      			Point UL = checkInitialPosition(patrolZone.getUL());
-  	      			if((objectivePoint.getX()==c_x) && (objectivePoint.getY()==c_y)){ // we are on the corner UL
+  	      			Point UL = checkInitialPosition(patrolZone.getUL());
+  	      			// case when we had shifted from the correct path (for collision avoidance)
+  	      			if(((objectivePoint.getX() != UL.x) || (objectivePoint.getY() != UL.y))  && 
+  	      					(objectivePoint.getX()==c_x) && (objectivePoint.getY()==c_y)){ 
+  	      				if(!patroling){
+  	      					objectivePoint = checkInitialPosition(patrolZone.getUL());
+  	      					c = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
+  	      					showMessage("Returning to path to UL position.");
+  	      				} else {
+	  	      				Point patrollMovement = patrollPath.get(patrollPoint);
+		  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
+		  	      			
+		  	      			//Check if the patroll movement is possible or not (if not occupated)
+		  	      			if((patrollMovement.x != c.getRow()) && (patrollMovement.y != c.getColumn())){
+		  	      				objectivePoint = patrollMovement; //Save the patroll movement as to the new objective because you do not follow the patrol path.
+		  	      			}
+		  	      			
+		  	      			//Update the pointer in the patrollPath
+		  	      			if(sign){
+			  	      			patrollPoint++;
+		  	      			}else{
+			  	      			patrollPoint--;
+		  	      			}
+		  	      			if(patrollPoint<0 && patrollPoint>=patrollPath.size()){
+			  	      			System.out.println("******Change direction*******");
+			  	      			sign = !sign; //
+				  	      		if(sign){
+				  	      			patrollPoint++;
+			  	      			}else{
+				  	      			patrollPoint--;
+			  	      			}
+		  	      			}
+		  	      			
+		  	      			showMessage("Returning to patrol.");
+		  	      			
+  	      				}
+  	      			}
+  	      			// we are on the corner UL
+  	      			else if((objectivePoint.getX() == UL.x) && (objectivePoint.getY() == UL.y) && 
+  	      					(objectivePoint.getX()==c_x) && (objectivePoint.getY()==c_y)){ 
   	      				objectivePoint = null;
 	  	      			Point patrollMovement = patrollPath.get(patrollPoint);
 	  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
@@ -412,6 +451,7 @@ public class ScoutAgent extends Agent {
 			  	      			patrollPoint--;
 		  	      			}
 	  	      			}
+	  	      			patroling = true;
 	  	      			showMessage("Starting patrol.");
   	      			}else{
 		  	      		c = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));

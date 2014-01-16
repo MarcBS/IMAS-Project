@@ -484,25 +484,25 @@ public class CentralAgent extends Agent {
 				
 				try {
 //<<<<<<< HEAD
-//					Object contentRebut = (Object)msg.getContent();
-//
-//					if(msg.getContentObject() instanceof ArrayList<?> && processMovements(msg.getContentObject())) {
-//						turnLastMap = game.getTurn();
-//						showMessage("Movements applied.");
-//						reply = msg.createReply();
-//						reply.setPerformative(ACLMessage.AGREE);
-//						okRR = true;
+					Object contentRebut = (Object)msg.getContent();
+
+					if(msg.getContentObject() instanceof ArrayList<?> && processMovements(msg.getContentObject())) {
+						turnLastMap = game.getTurn();
+						showMessage("Movements applied.");
+						reply = msg.createReply();
+						reply.setPerformative(ACLMessage.AGREE);
+						okRR = true;
 //=======
-					Object contentRebut = (Object)msg.getContentObject();
-					if(contentRebut instanceof ArrayList<?>){
-						boolean result = processMovements(msg.getContentObject());
-						if(result) {
-							turnLastMap = game.getTurn();
-							showMessage("Movements applied.");
-							reply = msg.createReply();
-							reply.setPerformative(ACLMessage.AGREE);
-							okRR = true;
-						}
+//					Object contentRebut = (Object)msg.getContentObject();
+//					if(contentRebut instanceof ArrayList<?> && msg.getSender().getLocalName().equals()){
+//						boolean result = processMovements(msg.getContentObject());
+//						if(result) {
+//							turnLastMap = game.getTurn();
+//							showMessage("Movements applied.");
+//							reply = msg.createReply();
+//							reply.setPerformative(ACLMessage.AGREE);
+//							okRR = true;
+//						}
 //>>>>>>> origin/debug
 					} else {
 			        	messagesQueue.add(msg);
@@ -839,7 +839,7 @@ public class CentralAgent extends Agent {
 						
 						try {
 							ArrayList contentRebut = (ArrayList)msg.getContentObject();
-					        if(msg.getSender().equals(coordinatorAgent)) {
+					        if(msg.getSender().getLocalName().equals(coordinatorAgent.getLocalName())) {
 					        	newDiscoveries = checkIfNewDiscoveries(contentRebut);
 					        	okDisc = true;
 					        	showMessage("New discoveries from " + msg.getSender().getLocalName() + " received.");
@@ -1124,20 +1124,10 @@ public class CentralAgent extends Agent {
 					}
 					count++;
 				}
-//<<<<<<< HEAD
-//				// if we have found a true new position, then we add it to the 
-//				// list of true new discoveries (trueDisc) and delete it from
-//				// the rest of the lists.
-//				if(found){
-//					newDiscover++;
-//					trueDisc.add((ArrayList)disc.get(i));
-//					disc.remove(i);
-//					toDelete.add(count);
-//=======
+				
 				// Deletes all the found garbages from the list in "game".
 				for(int i : toDelete){
 					list.remove(i);
-//>>>>>>> origin/debug
 				}
 				game.setBuildingsGarbage(list);
 				
