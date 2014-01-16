@@ -79,7 +79,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 
 	public HarvesterAgent()
 	{
-		int[] N = {1,0}, E={0,1}, S = {-1,0}, W= {0,-1};
+		int[] N = {-1,0}, E={0,1}, S = {1,0}, W= {0,-1};
 		moviment.put(NORT, N);
 		moviment.put(SUD, S);
 		moviment.put(EST, E);
@@ -833,11 +833,11 @@ public class HarvesterAgent extends Agent implements Serializable{
 		if (x_dif == 1 && y_dif == 0)
 			return this.NORT;
 		if (x_dif == 0 && y_dif == 1)
-			return this.EST;
+			return this.WEST;
 		if (x_dif == -1 && y_dif == 0)
 			return this.SUD;
 		if ( x_dif == 0 && y_dif == -1)
-			return this.WEST;
+			return this.EST;
 		
 		System.err.println("Position not correct");
 		return -1;
@@ -1103,10 +1103,10 @@ public class HarvesterAgent extends Agent implements Serializable{
 		if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
 			Cell dest = map[xi][yi];
 			if (dest.getCellType() == Cell.STREET) {
-				if(!dest.isThereAnAgent())
-				{
+//				if(!dest.isThereAnAgent())
+//				{
 					return true;
-				}
+//				}
 			}
 		}
 		return false;
