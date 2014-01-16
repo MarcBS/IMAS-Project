@@ -399,9 +399,9 @@ public class ScoutAgent extends Agent {
 		  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
 		  	      			
 		  	      			//Check if the patroll movement is possible or not (if not occupated)
-		  	      			if((patrollMovement.x != c.getRow()) && (patrollMovement.y != c.getColumn())){
-		  	      				objectivePoint = patrollMovement; //Save the patroll movement as to the new objective because you do not follow the patrol path.
-		  	      			}
+//		  	      			if((patrollMovement.x != c.getRow()) && (patrollMovement.y != c.getColumn())){
+//		  	      				objectivePoint = patrollMovement; //Save the patroll movement as to the new objective because you do not follow the patrol path.
+//		  	      			}
 		  	      			
 		  	      			//Update the pointer in the patrollPath
 		  	      			if(sign){
@@ -419,6 +419,7 @@ public class ScoutAgent extends Agent {
 			  	      			}
 		  	      			}
 		  	      			
+		  	      			objectivePoint = null;
 		  	      			showMessage("Returning to patrol.");
 		  	      			
   	      				}
