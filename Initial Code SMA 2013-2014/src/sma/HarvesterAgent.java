@@ -443,8 +443,8 @@ public class HarvesterAgent extends Agent implements Serializable{
                     } else { // we have recently been avoiding a collision
                             followingOptimalPath = true;
                             // modify the optimal path adding the steps to go back to the lastOptimalPoint!!
-                            objectives.add(0, objectivePosition);
-                            objectivePosition = lastOptimalPoint;
+                            //objectives.add(0, objectivePosition);
+                            //objectivePosition = lastOptimalPoint;
                             
                             c = moveNormally();
                     }
@@ -1029,7 +1029,12 @@ public class HarvesterAgent extends Agent implements Serializable{
 				positionToReturn.removeAgent(this.myAID);
 				positionToReturn.addAgent(mapInfo.getInfoAgent(this.getAID()));
 			} catch (Exception e) {
-				// TODO Auto-generated catch block
+				try {
+					positionToReturn.addAgent(actualPosition.getAgent());
+				} catch (Exception e1) {
+					// TODO Auto-generated catch block
+					e1.printStackTrace();
+				}
 				e.printStackTrace();
 			} //Save infoagent to the new position
 			
