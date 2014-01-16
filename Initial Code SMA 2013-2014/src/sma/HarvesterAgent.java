@@ -384,7 +384,7 @@ public class HarvesterAgent extends Agent implements Serializable{
       						findNextObjective(); // get the next movement, using the Manhattan distance and the position in the stack
       						//objectivePosition = objectives.remove(0); // get the first movement of the stack
       					}else{
-      						objectivePosition = null;
+      						objectivePosition = new Cell(-1, -1);
       					}
       					
       				}
@@ -729,7 +729,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 				float tmp_capacity = capacity - auctionInfo.getInfo().getGarbageUnits();
 				if(tmp_capacity == 0){ tmp_capacity = 1;} // if the harvester is full, optimizes the garbage collection
 				//else{tmp_capacity = 1/tmp_capacity;} 
-				float num_objectives = 2;
+				float num_objectives = 10;
 				if(objectives.size() > 0) num_objectives = 1/objectives.size();
 				bid = 1/distance1 + 1/tmp_capacity + 1/distance2 + points + num_objectives;
 			} catch (Exception e) {
@@ -1024,6 +1024,8 @@ public class HarvesterAgent extends Agent implements Serializable{
 				{
 					this.cantMove = true;
 					positionToReturn = actualPosition;
+				} else {
+					positionToReturn = actualPosition;
 				}
 			}
 			
@@ -1232,6 +1234,9 @@ public class HarvesterAgent extends Agent implements Serializable{
 		showMessage("I wanna go to the cell = ["+objectivePosition.getRow()+","+objectivePosition.getColumn()+"]");
 		
 		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
+		
+		if (newPosition == null)
+			return null;
 		
 		int xi = newPosition.getRow();
 		int yi = newPosition.getColumn();

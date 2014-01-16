@@ -611,6 +611,9 @@ public class ScoutAgent extends Agent {
 		
 		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
 		
+		if (newPosition == null)
+			return null;
+		
 		int xi = newPosition.getRow();
 		int yi = newPosition.getColumn();
 		int maxRows = auxInfo.getMapRows();

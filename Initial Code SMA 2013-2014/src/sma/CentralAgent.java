@@ -271,6 +271,9 @@ public class CentralAgent extends Agent {
 		ArrayList<Integer> addPositions = new ArrayList<Integer>(); // order in which the agents must be added to the map
 		ArrayList<Integer> movingPos = new ArrayList<Integer>(); // indices of the agents that are moving
 		ArrayList<Integer> standPos = new ArrayList<Integer>(); // indices of the agents that are standing still
+		
+		ArrayList<ArrayList> checked = new ArrayList<ArrayList>();// crossed positions checked for crashes
+		
 		int k = 0;
 		boolean mov_processed = false;
 		
@@ -310,7 +313,6 @@ public class CentralAgent extends Agent {
 					movingPos.add(k);
 				}
 				
-				// get the InfoAgent of this Cell
 				old.add(oldAgentPos.get(k).getAgent());
 	
 			
@@ -343,10 +345,52 @@ public class CentralAgent extends Agent {
 				System.err.println("Agent not found");
 			}
 	
-		}
+		}		
 		
 		addPositions.addAll(standPos);
 		addPositions.addAll(movingPos);
+		
+		// Check exchanging positions (crashes)
+		for(int i = 0; i < oldAgentPos.size(); i++){
+			for(int j = 0; j < oldAgentPos.size(); j++){
+				boolean trobat = false; int lenChecked = 0; 
+				while(!trobat && lenChecked < checked.size()){
+					ArrayList pair = checked.get(lenChecked);
+					if(((int)pair.get(0) == i && (int)pair.get(1) == j) || ((int)pair.get(0) == j && (int)pair.get(1) == i)){
+						trobat = true; // we have already checked this pair, we do not have to repeat it
+					}
+					lenChecked++;
+				}
+				if(j != i && !trobat){ // they are not the same agent
+					AID aid_j = old.get(addPositions.get(j)).getAID();
+					AID aid_i = old.get(addPositions.get(i)).getAID();
+					Cell old_pos_j = oldAgentPos.get(addPositions.get(j));
+					Cell old_pos_i = oldAgentPos.get(addPositions.get(i));
+					Cell new_pos_j = newAgentPos.get(j);
+					Cell new_pos_i = newAgentPos.get(i);
+					
+					// if old_pos_j == new_pos i
+					// and old_pos i == new_pos j
+					// CRASH!!!
+					if(old_pos_j.getRow() == new_pos_i.getRow() && old_pos_j.getColumn() == new_pos_i.getColumn() &&
+							old_pos_i.getRow() == new_pos_j.getRow() && old_pos_i.getColumn() == new_pos_j.getColumn()){
+						// We correct to their old positions
+						int old_i_r = old_pos_i.getRow();
+						int old_i_c = old_pos_i.getColumn();
+						int old_j_r = old_pos_j.getRow();
+						int old_j_c = old_pos_j.getColumn();
+						newAgentPos.get(i).setRow(old_i_r);
+						newAgentPos.get(i).setColumn(old_i_c);
+						newAgentPos.get(j).setRow(old_j_r);
+						newAgentPos.get(j).setColumn(old_j_c);
+						System.err.println("Crash between " + aid_j.getLocalName() + " and " + aid_i.getLocalName() +"!");
+						ArrayList pair = new ArrayList(); pair.add(i); pair.add(j);
+						checked.add(pair);
+					}
+					
+				}
+			}
+		}
 		
 		/* Up to this point, all the cells don't have any InfoAgent inside. In the following loop, we are gonna put the InfoAgents into new positions */
 		for (int i=0; i<k; i++)
@@ -373,6 +417,7 @@ public class CentralAgent extends Agent {
 				System.err.println("There is an agent in this cell");
 				try {
 					// We do not move it from its old position
+					oldAgentPos.get(addPositions.get(i)).removeAgent(old.get(addPositions.get(i)).getAID());
 					oldAgentPos.get(addPositions.get(i)).addAgent(old.get(addPositions.get(i)));
 					game.getInfo().setAgentCell(old.get(addPositions.get(i)), oldAgentPos.get(addPositions.get(i)));
 				} catch (Exception e) {
@@ -758,6 +803,11 @@ public class CentralAgent extends Agent {
 			boolean game_finished = false;
 
 			// Update Turn counter
+			try {
+			    Thread.sleep(400);
+			} catch(InterruptedException ex) {
+			    Thread.currentThread().interrupt();
+			}
 			game.incrTurn();
 			int turn = game.getTurn();
 			if(turn <= game.getGameDuration()){
@@ -1104,9 +1154,9 @@ public class CentralAgent extends Agent {
 				ArrayList trueDisc = new ArrayList();
 				ArrayList<Integer> toDelete = new ArrayList<Integer>();
 				java.util.List<Cell> list = game.getBuildingsGarbage();
-				int count = 0;
 				// we go through all the garbages that have not been detected yet
-				for(Cell g : list){
+				for(int count = 0; count < list.size(); count++){
+					Cell g = list.get(count);
 					boolean found = false;
 					int i = 0;
 					// and compare them with all the discovered garbages by the scouts
@@ -1127,12 +1177,11 @@ public class CentralAgent extends Agent {
 						disc.remove(i);
 						toDelete.add(count);
 					}
-					count++;
 				}
 				
 				// Deletes all the found garbages from the list in "game".
 				for(int i = toDelete.size()-1; i >= 0; i--){
-					list.remove(i);
+					list.remove((int)toDelete.get(i));
 				}
 				game.setBuildingsGarbage(list);
 				
