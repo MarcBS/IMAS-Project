@@ -93,7 +93,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 	   * @param str String to show
 	   */
 	private void showMessage(String str) {
-		LogPanel.showMessage(getLocalName() + ": " + str);
+		LogPanel.showMessage(getLocalName() + ": " + str+"\n");
 		if(debugging)
 			System.out.println(getLocalName() + ": " + str);
 	}
@@ -143,7 +143,6 @@ public class HarvesterAgent extends Agent implements Serializable{
 	    	// Finite State Machine
 	 		FSMBehaviour fsm = new FSMBehaviour(this) {
 	 			public int onEnd() {
-	 				System.out.println("FSM behaviour completed.");
 	 				myAgent.doDelete();
 	 				return super.onEnd();
 	 			}

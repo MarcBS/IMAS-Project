@@ -87,8 +87,6 @@ public class CentralAgent extends Agent {
 	 */
 	private void showMessage(String str) {
 		if (gui!=null) gui.showLog(str + "\n");
-		if(debugging)
-			System.out.println(getLocalName() + ": " + str);
 	}
 
 	private java.util.List<Cell> placeAgents(InfoGame currentGame) throws Exception {
@@ -107,7 +105,7 @@ public class CentralAgent extends Agent {
       
       ServiceDescription searchCriterion = new ServiceDescription();
       searchCriterion.setType(UtilsAgents.SCOUT_AGENT);
-      
+      showMessage("Placing agents...");
       while(numScouts<maxScouts){
     	  x = game.getInfo().getRandomPosition(20);
     	  y = game.getInfo().getRandomPosition(20);
@@ -156,6 +154,8 @@ public class CentralAgent extends Agent {
       	      numHarvesters++;
     	  }
       }
+      showMessage(numScouts+" of the scout agents have been placed!");
+      showMessage(numHarvesters+" of the harverters agents have been placed!");
       showMessage("All agents placed");
       return agents;
     }
@@ -240,14 +240,13 @@ public class CentralAgent extends Agent {
 		showMessage("Starting InitialRequestResponseBehaviour");
 		this.addBehaviour(new InitialRequestResponseBehaviour());
 
-		showMessage("Setup finished");
 
 		// Setup finished. When the last inform is received, the agent itself will add
 		// a behaviour to send/receive actions
-
+		showMessage("MainLoopBehaviour added");
 		this.addBehaviour(new MainLoopBehaviour(this, game.getTimeout()));
 		
-		showMessage("MainLoopBehaviour added");
+		showMessage("Setup finished\n");
 
 	} //endof setup
 
@@ -260,7 +259,7 @@ public class CentralAgent extends Agent {
 	 * @param moves Object containing 
 	 */
 	private boolean processMovements(Object cells){
-		showMessage("Checking MOVEMENTS");
+		showMessage("Checking received movements");
 		
 		ArrayList<Cell> mo_list = (ArrayList)cells;
 		ArrayList<Integer> row_cell_processed = new ArrayList<Integer>();
@@ -382,7 +381,7 @@ public class CentralAgent extends Agent {
 				}
 			}
 		}
-		showMessage("MOVEMENTS processed.");
+		showMessage("Movements have been processed.");
 		movements_updated = true;
 		return true;
 	}
@@ -401,7 +400,7 @@ public class CentralAgent extends Agent {
 	 * <p><b>Copyright:</b> Copyright (c) 2009</p>
 	 * <p><b>Company:</b> Universitat Rovira i Virgili (<a
 	 * href="http://www.urv.cat">URV</a>)</p>
-	 * @author David Isern and Joan Albert LÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩÔøΩpez
+	 * @author David Isern and Joan Albert L������������������������������������������������������������������������������������������������������������������������������������������������������������������pez
 	 * @see sma.ontology.Cell
 	 * @see sma.ontology.InfoGame
 	 */
@@ -516,7 +515,6 @@ public class CentralAgent extends Agent {
 	        messagesQueue.endRetrieval();
 	        
 			if( reply != null){
-				showMessage("EXIT");
 				send(reply);
 			}else{
 				showMessage("No movements message found!!");
@@ -702,6 +700,8 @@ public class CentralAgent extends Agent {
 								harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
 								haversterUnits++;
 								
+								showMessage(senderName+" is recycling 1 unit of the garbage type "+garbage);
+								showMessage(senderName+" obtains:"+tmp+b.getGarbagePoints(garbage) +" points by recycling the garbage");
 								reply = msg.createReply();
 								reply.setPerformative(ACLMessage.AGREE);		
 							}
@@ -743,7 +743,7 @@ public class CentralAgent extends Agent {
 	 * Performs the main loop of the application checking the moves of the agents and
 	 * updating the GUI until we reach the number of turns for this game.
 	 * 
-	 * @author Marc BolaÒos
+	 * @author Marc Bola��os
 	 *
 	 */
 	private class MainLoopBehaviour extends TickerBehaviour {
@@ -761,8 +761,7 @@ public class CentralAgent extends Agent {
 			game.incrTurn();
 			int turn = game.getTurn();
 			if(turn <= game.getGameDuration()){
-				System.out.println("\n\n");
-				showMessage("Turn " + String.valueOf(turn));
+				showMessage("\n\nTurn " + String.valueOf(turn));
 				// Finishing game
 			} else {
 				try {
@@ -785,6 +784,7 @@ public class CentralAgent extends Agent {
 				double d = Math.random();
 				if(d <= game.getProbGarbage()){
 					try {
+						showMessage("Adding new garbage...");
 						addGarbage();
 
 					} catch (Exception e) {
@@ -817,7 +817,7 @@ public class CentralAgent extends Agent {
 		   * 
 		   * Waiting for new discoveries from the CoordinatorAgent
 		   * 
-		   * @author Marc BolaÒos
+		   * @author Marc Bola��os
 		   *
 		   */
 			protected class ReceiveNewDiscoveries extends SimpleBehaviour {
@@ -871,7 +871,7 @@ public class CentralAgent extends Agent {
 			/**
 			   * Sends the new discoveries to the CoordinatorAgent.
 			   * 
-			   * @author Marc BolaÒos
+			   * @author Marc Bola��os
 			   *
 			   */
 				protected class SendNewDiscoveries extends SimpleBehaviour {
@@ -884,7 +884,7 @@ public class CentralAgent extends Agent {
 					@Override
 					public void action() {
 						
-						showMessage("Sending really new discoveries to coord agent.");
+						showMessage("Sending really new discoveries to coord agent\n");
 						
 						// Requests the map again sending the list of movements
 				        ACLMessage discoveriesMsg = new ACLMessage(ACLMessage.INFORM);
@@ -928,7 +928,7 @@ public class CentralAgent extends Agent {
 					@Override
 					public void action() {
 
-						showMessage("Reading updates from Harvesters.");
+						showMessage("Reading updates garbafe from Harvesters.");
 						
 						boolean okRR = false;
 						ACLMessage reply = null;
@@ -983,6 +983,9 @@ public class CentralAgent extends Agent {
 											tmp = harvester_points.remove(senderName);
 											harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
 											haversterUnits++;
+											
+											showMessage(senderName+" is recycling 1 unit of the garbage type "+garbage);
+											showMessage(senderName+" obtains:"+tmp+b.getGarbagePoints(garbage) +" points by recycling the garbage");
 											
 											reply = msg.createReply();
 											reply.setPerformative(ACLMessage.AGREE);		
@@ -1120,6 +1123,7 @@ public class CentralAgent extends Agent {
 					// the rest of the lists.
 					if(found){
 						trueDisc.add((ArrayList)disc.get(i));
+						newDiscover++;
 						disc.remove(i);
 						toDelete.add(count);
 					}

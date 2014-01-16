@@ -87,7 +87,7 @@ public class ScoutAgent extends Agent {
 	   * @param str String to show
 	   */
 	private void showMessage(String str) {
-		LogPanel.showMessage(getLocalName() + ": " + str);
+		LogPanel.showMessage(getLocalName() + ": " + str+"\n");
 		if(debugging)
 			System.out.println(getLocalName() + ": " + str);
 	}
@@ -135,7 +135,6 @@ public class ScoutAgent extends Agent {
 	    FSMBehaviour fsm = new FSMBehaviour(this) {
 			private static final long serialVersionUID = 1L;
 			public int onEnd() {
-				System.out.println("FSM behaviour completed.");
 				myAgent.doDelete();
 				return super.onEnd();
 			}
@@ -155,7 +154,7 @@ public class ScoutAgent extends Agent {
  		fsm.registerDefaultTransition("STATE_4", "STATE_3");
  		fsm.registerDefaultTransition("STATE_3", "STATE_2");
  		
- 		// Version 1 (Marc) Diria que no és correcte 
+ 		// Version 1 (Marc) Diria que no ï¿½s correcte 
  		/*fsm.registerDefaultTransition("STATE_1", "STATE_2");
  		fsm.registerDefaultTransition("STATE_2", "STATE_3");
  		fsm.registerDefaultTransition("STATE_4", "STATE_2");
@@ -294,7 +293,7 @@ public class ScoutAgent extends Agent {
 	
 	/**
 	 * 
-	 * @author Marc Bolaï¿½os Solï¿½
+	 * @author Marc Bolaï¿½ï¿½ï¿½os Solï¿½ï¿½ï¿½
 	 * Looks for any position around it with garbage and sends them to the ScoutsCoordinator.
 	 */
 	protected class SendGarbagePositions extends SimpleBehaviour
@@ -411,7 +410,7 @@ public class ScoutAgent extends Agent {
 			  	      			patrollPoint--;
 		  	      			}
 		  	      			if(patrollPoint<0 && patrollPoint>=patrollPath.size()){
-			  	      			System.out.println("******Change direction*******");
+		  	      				showMessage("Changing the direction of the patrolling path");
 			  	      			sign = !sign; //
 				  	      		if(sign){
 				  	      			patrollPoint++;
@@ -443,7 +442,7 @@ public class ScoutAgent extends Agent {
 		  	      			patrollPoint--;
 	  	      			}
 	  	      			if(patrollPoint<0 && patrollPoint>=patrollPath.size()){
-		  	      			System.out.println("******Change direction*******");
+	  	      				showMessage("Changing the direction of the patrolling path");
 		  	      			sign = !sign; //
 			  	      		if(sign){
 			  	      			patrollPoint++;
