@@ -44,7 +44,7 @@ public class HarvesterAgent extends Agent {
 
 	private AID harvesterCoordinatorAgent;
 
-	private Cell objectivePosition;
+	private Cell objectivePosition = new Cell(-1, -1); // initialize objective position until we received a garbage position
 	
 	private AStar astar;
 	
@@ -150,11 +150,16 @@ public class HarvesterAgent extends Agent {
 	 		fsm.registerState(new MoveAgent(this, harvesterCoordinatorAgent), "STATE_4");
 
 	 		// FSM transitions
-	 		fsm.registerDefaultTransition("STATE_1", "STATE_2");
+	 		/*fsm.registerDefaultTransition("STATE_1", "STATE_2");
             fsm.registerDefaultTransition("STATE_2", "STATE_4");
             fsm.registerDefaultTransition("STATE_4", "STATE_3");
-            fsm.registerDefaultTransition("STATE_3", "STATE_2");
+            fsm.registerDefaultTransition("STATE_3", "STATE_2");*/
 
+            fsm.registerDefaultTransition("STATE_1", "STATE_3");
+     		fsm.registerDefaultTransition("STATE_3", "STATE_4");
+     		fsm.registerDefaultTransition("STATE_4", "STATE_2");
+     		fsm.registerDefaultTransition("STATE_2", "STATE_3");
+            
 	 		// Add behavior of the FSM
 	 		addBehaviour(fsm);
 	}
@@ -211,14 +216,18 @@ public class HarvesterAgent extends Agent {
 																			// about
 																			// the
 																			// game
+							astar = new AStar(mapInfo);
 							showMessage("Recieved game info from "+ reply.getSender());
-						} catch (UnreadableException e) {
+							okInfo = true;
+						} catch (Exception e) {
 							messagesQueue.add(reply);
 							System.err
 									.println(getLocalName()
 											+ " Recieved game info unsucceeded. Reason: "
 											+ e.getMessage());
-						} catch (ClassCastException cce){
+						} 
+						// USELESS!!!!!!
+						/*catch (ClassCastException cce){
 							try {
 								objectivePosition = (Cell) reply.getContentObject();
 								showMessage("Receiving objective position from "+receptor);
@@ -241,8 +250,8 @@ public class HarvesterAgent extends Agent {
 									.println(getLocalName()
 											+ " Recieved object position unsucceeded. Reason: "
 											+ ue.getMessage());
-							}
-						}
+							}*/
+						
 						break;
 					case ACLMessage.FAILURE:
 						System.err
@@ -400,7 +409,7 @@ public class HarvesterAgent extends Agent {
             }
    
             return c;
-    }
+		}
 		
 		public void action()
 		{
@@ -415,7 +424,7 @@ public class HarvesterAgent extends Agent {
                             c = moveNormally();
                     } else { // we have recently been avoiding a collision
                             followingOptimalPath = true;
-                            // TODO: modify the optimal path adding the steps to go back to the lastOptimalPoint!!
+                            // modify the optimal path adding the steps to go back to the lastOptimalPoint!!
                             
                             
                             c = moveNormally();
@@ -429,11 +438,11 @@ public class HarvesterAgent extends Agent {
            
             // Send the cell
             
-            ACLMessage reply2 = new ACLMessage(ACLMessage.REQUEST);
+            ACLMessage reply2 = new ACLMessage(ACLMessage.INFORM);
             reply2.clearAllReceiver();
             reply2.addReceiver(receptor);
             //reply2.setProtocol(InteractionProtocol.FIPA_REQUEST);
-            reply2.setPerformative(ACLMessage.INFORM);
+            //reply2.setPerformative(ACLMessage.INFORM);
             try {
 				reply2.setContentObject(c);
 			} catch (IOException e) {
@@ -501,11 +510,11 @@ public class HarvesterAgent extends Agent {
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
 		public int onEnd(){
+			showMessage("STATE_4: Position sent.");
 			return 0;
 	    }
 		
@@ -596,7 +605,6 @@ public class HarvesterAgent extends Agent {
 		}
 
 		public boolean done() {
-			showMessage("STATE_2 return OK");
 			return true;
 		}
 
@@ -631,10 +639,9 @@ public class HarvesterAgent extends Agent {
 						
 						case ACLMessage.INFORM:
 								try {
+									auctionInfo = (AuxGarbage) reply.getContentObject();
 									
 									showMessage("Receiving garbage info from "+ reply.getSender());
-									
-									auctionInfo = (AuxGarbage) reply.getContentObject();
 									
 									if(auctionInfo == null){
 										showMessage("There is no garbage!");
@@ -652,12 +659,13 @@ public class HarvesterAgent extends Agent {
 												+ " Recieved auction info unsucceeded. Reason: "
 												+ e.getMessage());
 								} catch (Exception e) {
+									messagesQueue.add(reply);
 									e.printStackTrace();
 								}
 						break;
 						
 						case ACLMessage.FAILURE:
-								System.err.println(getLocalName()
+							System.err.println(getLocalName()
 											+ " Recieved auction info unsucceeded. Reason: Performative was FAILURE");
 						break;
 						
@@ -763,7 +771,7 @@ public class HarvesterAgent extends Agent {
 						break;
 						
 						case ACLMessage.FAILURE:
-								System.err.println(getLocalName()
+							System.err.println(getLocalName()
 											+ " Recieved game info unsucceeded. Reason: Performative was FAILURE");
 						break;
 						
@@ -986,8 +994,8 @@ public class HarvesterAgent extends Agent {
 			}
 			
 			// Update info agent in the new cell
-			positionToReturn.removeAgent(this.myAID);
 			try {
+				positionToReturn.removeAgent(this.myAID);
 				positionToReturn.addAgent(mapInfo.getInfoAgent(this.getAID()));
 			} catch (Exception e) {
 				// TODO Auto-generated catch block

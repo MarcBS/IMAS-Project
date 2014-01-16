@@ -146,12 +146,13 @@ public class ScoutAgent extends Agent {
 	    fsm.registerState(new RecieveGameInfo(this, scoutCoordinatorAgent), "STATE_3");
 	    // Behaviour to decide where to move and send that information to the ScoutCoordinator
  		fsm.registerState(new MoveAgent(this, scoutCoordinatorAgent), "STATE_4");
-	    
+
  		fsm.registerDefaultTransition("STATE_1", "STATE_2");
  		fsm.registerDefaultTransition("STATE_2", "STATE_4");
  		fsm.registerDefaultTransition("STATE_4", "STATE_3");
  		fsm.registerDefaultTransition("STATE_3", "STATE_2");
  		
+ 		// Version 1 (Marc) Diria que no és correcte 
  		/*fsm.registerDefaultTransition("STATE_1", "STATE_2");
  		fsm.registerDefaultTransition("STATE_2", "STATE_3");
  		fsm.registerDefaultTransition("STATE_4", "STATE_2");
@@ -218,13 +219,13 @@ public class ScoutAgent extends Agent {
 									//if(this.getAgent().getName().equals("s0@192.168.1.130:1099/JADE")){
 									createPatrolPath();
 									//}
-									// Send the cell
-						        	ACLMessage reply2 = reply.createReply();
-						  	      	reply2.setPerformative(ACLMessage.INFORM);
-						  	      	Cell c = null;
+									// Send the cell ---> USLESS!!!!
+						        	//ACLMessage reply2 = reply.createReply();
+						  	      	//reply2.setPerformative(ACLMessage.INFORM);
+						  	      	//Cell c = null;
 						  	      	try {
 						  	      		AID myAID = this.myAgent.getAID();
-						  	      		c = auxInfo.getAgentCell(myAID);
+						  	      		//Cell c = auxInfo.getAgentCell(myAID);
 						  	      		
 						  	      		/**
 						  	      		 * Create the patrol zone with the bounds of the delimiting zone 
@@ -235,8 +236,9 @@ public class ScoutAgent extends Agent {
 						  	      		
 						  	      		objectivePoint = checkInitialPosition(patrolZone.getUL());
 						  	      	
+						  	      		// Useless.....??
 						  	      		//First movement Following the best position to the path
-					  	      			Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
+					  	      			/*Cell newC = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
 					  	      			
 					  	      			if (newC == null)
 					  	      				newC = getRandomPosition(auxInfo.getMap(), c);
@@ -245,13 +247,13 @@ public class ScoutAgent extends Agent {
 					  
 						  	      		//Or random
 						  	      		//c = getRandomPosition(auxInfo.getMap(), c);
-					  	      			reply2.setContentObject(c); //Return a new cell to scout coordinator
+					  	      			reply2.setContentObject(c); //Return a new cell to scout coordinator*/
 						  	      	} catch (Exception e1) {
-						  	      		reply2.setPerformative(ACLMessage.FAILURE);
+						  	      		//reply2.setPerformative(ACLMessage.FAILURE);
 						  	      		System.err.println(e1.toString());
 						  	      	}
-						  	      	send(reply2);
-									showMessage("Sending the cell ["+c.getRow()+","+c.getColumn()+"] position to "+receptor);
+						  	      	//send(reply2);
+									//showMessage("Sending the cell ["+c.getRow()+","+c.getColumn()+"] position to "+receptor);
 									okInfo = true;
 		
 								} catch (UnreadableException e1) {
@@ -281,7 +283,7 @@ public class ScoutAgent extends Agent {
 		}
 		
 		public int onEnd(){
-	    	showMessage("STATE_1 return OK");
+	    	showMessage("STATE_1 return OK, AuxInfo and DelimitingZone received.");
 	    	return 0;
 	    }
 	}
@@ -379,10 +381,11 @@ public class ScoutAgent extends Agent {
 		  	      			patrollPoint--;
 	  	      			}
 	  	      		}
+	  	      		showMessage("Doing patrol.");
   	      		//Case when you have objective point
   	      		}else{
-	      				Point UL = checkInitialPosition(patrolZone.getUL());
-  	      			if((objectivePoint.getX()==c_x) && (objectivePoint.getY()==c_y)){
+	      			Point UL = checkInitialPosition(patrolZone.getUL());
+  	      			if((objectivePoint.getX()==c_x) && (objectivePoint.getY()==c_y)){ // we are on the corner UL
   	      				objectivePoint = null;
 	  	      			Point patrollMovement = patrollPath.get(patrollPoint);
 	  	      			c = checkIfPositionIsOccupied(auxInfo.getMap()[patrollMovement.x][patrollMovement.y],auxInfo.getMap(), c);
@@ -407,16 +410,18 @@ public class ScoutAgent extends Agent {
 			  	      			patrollPoint--;
 		  	      			}
 	  	      			}
+	  	      			showMessage("Starting patrol.");
   	      			}else{
 		  	      		c = getBestPositionToObjective(auxInfo.getMap(), c, new Cell(objectivePoint.x, objectivePoint.y));
+		  	      		showMessage("Doing getBestPositionToObjective.");
   	      			}
   	      		}
   	      		
   	      		if(c == null){
 	  	      		try {
 						c = getRandomPosition(auxInfo.getMap(), c);
+						showMessage("Doing random movement.");
 					} catch (IOException e) {
-						// TODO Auto-generated catch block
 						e.printStackTrace();
 					}
   	      		}	
@@ -437,7 +442,7 @@ public class ScoutAgent extends Agent {
                             c = moveNormally();
                     } else { // we have recently been avoiding a collision
                             followingOptimalPath = true;
-                            // TODO: modify the optimal path adding the steps to go back to the lastOptimalPoint!!
+                            // modify the optimal path adding the steps to go back to the lastOptimalPoint!!
                             objectivePoint = new Point(lastOptimalPoint.getRow(), lastOptimalPoint.getColumn());
                             c = moveNormally();
                     }
@@ -467,11 +472,11 @@ public class ScoutAgent extends Agent {
 
 		@Override
 		public boolean done() {
-			// TODO Auto-generated method stub
 			return true;
 		}
 		
 		public int onEnd(){
+			showMessage("STATE_4: Position sent.");
 			return 0;
 	    }	
 	}

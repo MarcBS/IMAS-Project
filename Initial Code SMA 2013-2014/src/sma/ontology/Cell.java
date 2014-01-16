@@ -73,10 +73,6 @@ public class Cell implements Serializable {
 	public int getCellType() {
 		return this.type;
 	}
-
-	public void removeAgent(AID currentAgent) {
-		this.agent = null;    
-	}
 	
 	public void setCellType(int newType) throws Exception {
 		if ((newType != BUILDING) && (newType != STREET)
@@ -218,6 +214,25 @@ public class Cell implements Serializable {
 		this.agent = null;
 	}
 
+	public void removeAgent(AID currentAgent) {
+		try{
+			if(this.agent == null){
+				System.out.println("Agent null");
+			}
+			if(currentAgent == null){
+				System.out.println("currentAgent null");
+			}
+			
+			if(this.agent != null){
+				if(!currentAgent.equals(this.agent.getAID())){
+					this.agent = null;
+				}
+			}
+		}catch(Exception e){
+			System.err.println(e);
+		}
+	}
+	
 	public InfoAgent getAgent() {
 		return this.agent;
 	}

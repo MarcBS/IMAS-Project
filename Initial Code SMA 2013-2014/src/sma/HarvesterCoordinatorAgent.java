@@ -33,7 +33,7 @@ import jade.lang.acl.UnreadableException;
 public class HarvesterCoordinatorAgent extends Agent {
 
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = true;;
+	private boolean debugging = true;
 	
 	private AID coordinatorAgent;
 	private AuxInfo mapInfo;
@@ -135,13 +135,15 @@ public class HarvesterCoordinatorAgent extends Agent {
 		fsm.registerTransition("STATE_3", "STATE_4", 2);
 		fsm.registerTransition("STATE_4", "STATE_4", 1);
 		//fsm.registerTransition("STATE_4", "STATE_1", 2);
-		fsm.registerTransition("STATE_4", "STATE_7", 2);
+		fsm.registerTransition("STATE_4", "STATE_1", 2);
 		//fsm.registerDefaultTransition("STATE_5", "STATE_3");
 		
 		fsm.registerDefaultTransition("STATE_5", "STATE_6");
 		fsm.registerDefaultTransition("STATE_2", "STATE_6");
-		fsm.registerDefaultTransition("STATE_6", "STATE_3");
-		fsm.registerDefaultTransition("STATE_7", "STATE_1");
+		//fsm.registerDefaultTransition("STATE_6", "STATE_3");
+		fsm.registerDefaultTransition("STATE_6", "STATE_7");
+		//fsm.registerDefaultTransition("STATE_7", "STATE_1");
+		fsm.registerDefaultTransition("STATE_7", "STATE_3");
 
 		// Add behavior of the FSM
 		addBehaviour(fsm);
@@ -212,11 +214,11 @@ public class HarvesterCoordinatorAgent extends Agent {
 																				// game
 									okInfo = true;
 									showMessage("Recieved game info from "+ reply.getSender());
-								} catch (UnreadableException e) {
+								} catch (Exception e) {
 									messagesQueue.add(reply);
-									System.err.println(getLocalName()
+									/*System.err.println(getLocalName()
 												+ " Recieved game info unsucceeded. Reason: "
-												+ e.getMessage());
+												+ e.getMessage());*/
 								}
 						break;
 						
@@ -285,7 +287,8 @@ public class HarvesterCoordinatorAgent extends Agent {
 				showMessage("Sending game info to "+ mapInfo.getHarvesters_aids().get(i));
 
 				/* Make a broadcast to all harvesters sending random movement */
-				int mapSize = mapInfo.getMap().length;
+				// USELESS!!
+				/*int mapSize = mapInfo.getMap().length;
 				Cell c = mapInfo.getCell(rnd.nextInt(mapSize), rnd.nextInt(mapSize));
 				try {
 					request.setContentObject(c);
@@ -295,7 +298,7 @@ public class HarvesterCoordinatorAgent extends Agent {
 				}
 				send(request);
 				showMessage("Sending random movement to "
-						+ mapInfo.getHarvesters_aids().get(i));
+						+ mapInfo.getHarvesters_aids().get(i));*/
 			}
 		}
 
@@ -338,13 +341,12 @@ public class HarvesterCoordinatorAgent extends Agent {
 						break;
 					case ACLMessage.INFORM:
 						try {
-							showMessage("Receiving movement of the harvester "+reply.getSender());
-
 							Cell c = (Cell) reply.getContentObject(); // Getting
 																		// object
 																		// with
 																		// the
 																		// movement
+							showMessage("Receiving movement of the harvester "+reply.getSender());
 							movementList.add(c);
 							okInfo = true;
 							countMovesReceived++;
@@ -354,14 +356,14 @@ public class HarvesterCoordinatorAgent extends Agent {
 							messagesQueue.add(reply);
 							System.err
 									.println(getLocalName()
-											+ " Recieved game info unsucceeded. Reason: "
+											+ " Recieved movement unsucceeded. Reason: "
 											+ e.getMessage());
 						}
 						break;
 					case ACLMessage.FAILURE:
 						System.err
 								.println(getLocalName()
-										+ " Recieved game info unsucceeded. Reason: Performative was FAILURE");
+										+ " Recieved movement unsucceeded. Reason: Performative was FAILURE");
 						break;
 					default:
 						// Unexpected messages received must be added to the queue.

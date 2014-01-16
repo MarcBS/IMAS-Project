@@ -38,7 +38,7 @@ import java.util.*;
 public class CentralAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = false;
+	private boolean debugging = true;
 
 	private sma.gui.GraphicInterface gui;
 	private sma.ontology.InfoGame game;
@@ -245,6 +245,9 @@ public class CentralAgent extends Agent {
 		ArrayList<Cell> oldAgentPos = new ArrayList<Cell>();
 		ArrayList<Cell> cell_processed = new ArrayList<Cell>();
 		ArrayList<InfoAgent> old = new ArrayList<InfoAgent>();
+		ArrayList<Integer> addPositions = new ArrayList<Integer>(); // order in which the agents must be added to the map
+		ArrayList<Integer> movingPos = new ArrayList<Integer>(); // indices of the agents that are moving
+		ArrayList<Integer> standPos = new ArrayList<Integer>(); // indices of the agents that are standing still
 		int k = 0;
 		boolean mov_processed = false;
 		
@@ -272,6 +275,16 @@ public class CentralAgent extends Agent {
 				i++;
 			}
 			if(found){
+				int addPos;
+				// We onlycheck if this is any agent that does not want to move
+				if(oldAgentPos.get(k).getRow() == pos_row && oldAgentPos.get(k).getColumn() == pos_col){
+					addPos = 0;
+					standPos.add(k);
+				} else {
+					addPos = k;
+					movingPos.add(k);
+				}
+				
 				// get the InfoAgent of this Cell
 				old.add(oldAgentPos.get(k).getAgent());
 	
@@ -291,7 +304,7 @@ public class CentralAgent extends Agent {
 						try{
 							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
 								found = true;
-								newAgentPos.add(map[i][j]);
+								newAgentPos.add(addPos, map[i][j]);
 								k++;
 							}
 						}catch(Exception e){}
@@ -305,31 +318,37 @@ public class CentralAgent extends Agent {
 			}
 	
 		}
+		
+		addPositions.addAll(standPos);
+		addPositions.addAll(movingPos);
+		
 		/* Up to this point, all the cells don't have any InfoAgent inside. In the following loop, we are gonna put the InfoAgents into new positions */
 		for (int i=0; i<k; i++)
 		{
 			mov_processed = false;
 			for (Cell c: cell_processed)
 			{
-				if ( (c.getRow() == newAgentPos.get(i).getRow()) && (c.getColumn() == newAgentPos.get(i).getColumn()) )
+				if ( (c.getRow() == newAgentPos.get(addPositions.get(i)).getRow()) && (c.getColumn() == newAgentPos.get(addPositions.get(i)).getColumn()) )
 					mov_processed = true;				
 			}
 			
-			/* If we have already put a InfoAgent in this cell in a previous movement already processed, then the Agent that wants to move to this cell is not allowed. */
 			if( !mov_processed ){
 				try {
-					newAgentPos.get(i).addAgent(old.get(i));
+					newAgentPos.get(addPositions.get(i)).addAgent(old.get(i));
+					game.getInfo().setAgentCell(old.get(i), newAgentPos.get(addPositions.get(i)));
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				game.getInfo().setAgentCell(old.get(i), newAgentPos.get(i));
-				cell_processed.add(newAgentPos.get(i));
+				cell_processed.add(newAgentPos.get(addPositions.get(i)));
 				
+			/* If we have already put a InfoAgent in this cell in a previous movement already processed, then the Agent that wants to move to this cell is not allowed. */
 			} else{ 
-				//System.err.println("There is an agent in this cell");
+				System.err.println("There is an agent in this cell");
 				try {
+					// We do not move it from its old position
 					oldAgentPos.get(i).addAgent(old.get(i));
+					game.getInfo().setAgentCell(old.get(i), oldAgentPos.get(i));
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -788,42 +807,46 @@ public class CentralAgent extends Agent {
 		 * @param disc ArrayList with all the garbage positions found.
 		 * @return ArrayList with all the really new garbages.
 		 */
-		private ArrayList checkIfNewDiscoveries(ArrayList disc){
+		private ArrayList checkIfNewDiscoveries(ArrayList disc) throws Exception {
 			
-			ArrayList trueDisc = new ArrayList();
-			ArrayList<Integer> toDelete = new ArrayList<Integer>();
-			java.util.List<Cell> list = game.getBuildingsGarbage();
-			int count = 0;
-			// we go through all the garbages that have not been detected yet
-			for(Cell g : list){
-				boolean found = false;
-				int i = 0;
-				// and compare them with all the discovered garbages by the scouts
-				while(!found && i < disc.size()){
-					ArrayList g2 = (ArrayList)disc.get(i);
-					if((int)g2.get(0) == g.getRow() && (int)g2.get(1) == g.getColumn()){
-						found = true;
-					} else {
-						i++;
+			try {
+				ArrayList trueDisc = new ArrayList();
+				ArrayList<Integer> toDelete = new ArrayList<Integer>();
+				java.util.List<Cell> list = game.getBuildingsGarbage();
+				int count = 0;
+				// we go through all the garbages that have not been detected yet
+				for(Cell g : list){
+					boolean found = false;
+					int i = 0;
+					// and compare them with all the discovered garbages by the scouts
+					while(!found && i < disc.size()){
+						ArrayList g2 = (ArrayList)disc.get(i);
+						if((int)g2.get(0) == g.getRow() && (int)g2.get(1) == g.getColumn()){
+							found = true;
+						} else {
+							i++;
+						}
 					}
+					// if we have found a true new position, then we add it to the 
+					// list of true new discoveries (trueDisc) and delete it from
+					// the rest of the lists.
+					if(found){
+						trueDisc.add((ArrayList)disc.get(i));
+						disc.remove(i);
+						toDelete.add(count);
+					}
+					count++;
 				}
-				// if we have found a true new position, then we add it to the 
-				// list of true new discoveries (trueDisc) and delete it from
-				// the rest of the lists.
-				if(found){
-					trueDisc.add((ArrayList)disc.get(i));
-					disc.remove(i);
-					toDelete.add(count);
+				// Deletes all the found garbages from the list in "game".
+				for(int i : toDelete){
+					list.remove(i);
 				}
-				count++;
+				game.setBuildingsGarbage(list);
+				
+				return trueDisc;
+			} catch (Exception e){
+				throw new Exception("This ArrayList is not a list of discoveries!!!");
 			}
-			// Deletes all the found garbages from the list in "game".
-			for(int i : toDelete){
-				list.remove(i);
-			}
-			game.setBuildingsGarbage(list);
-			
-			return trueDisc;
 		}
 
 	}

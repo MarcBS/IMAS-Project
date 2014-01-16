@@ -195,9 +195,9 @@ public class ScoutCoordinatorAgent extends Agent{
 								info = (AuxInfo) reply.getContentObject();	// Getting object with the information about the game
 								okInfo = true;
 								showMessage("Recieved game info from "+reply.getSender());
-							} catch (UnreadableException e) {
+							} catch (Exception e) {
 								messagesQueue.add(reply);
-								System.err.println(getLocalName() + " Recieved game info unsucceeded. Reason: " + e.getMessage());
+								//System.err.println(getLocalName() + " Recieved game info unsucceeded from "+ reply.getSender().getLocalName() +". Reason: " + e.getMessage());
 							}
 			    			break;
 			    		case ACLMessage.FAILURE:
