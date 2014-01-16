@@ -336,27 +336,27 @@ public class CentralAgent extends Agent {
 			mov_processed = false;
 			for (Cell c: cell_processed)
 			{
-				if ( (c.getRow() == newAgentPos.get(addPositions.get(i)).getRow()) && (c.getColumn() == newAgentPos.get(addPositions.get(i)).getColumn()) )
+				if ( (c.getRow() == newAgentPos.get(i).getRow()) && (c.getColumn() == newAgentPos.get(i).getColumn()) )
 					mov_processed = true;				
 			}
 			
 			if( !mov_processed ){
 				try {
-					newAgentPos.get(addPositions.get(i)).addAgent(old.get(i));
-					game.getInfo().setAgentCell(old.get(i), newAgentPos.get(addPositions.get(i)));
+					newAgentPos.get(i).addAgent(old.get(addPositions.get(i)));
+					game.getInfo().setAgentCell(old.get(addPositions.get(i)), newAgentPos.get(i));
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				cell_processed.add(newAgentPos.get(addPositions.get(i)));
+				cell_processed.add(newAgentPos.get(i));
 				
 			/* If we have already put a InfoAgent in this cell in a previous movement already processed, then the Agent that wants to move to this cell is not allowed. */
 			} else{ 
 				System.err.println("There is an agent in this cell");
 				try {
 					// We do not move it from its old position
-					oldAgentPos.get(i).addAgent(old.get(i));
-					game.getInfo().setAgentCell(old.get(i), oldAgentPos.get(i));
+					oldAgentPos.get(addPositions.get(i)).addAgent(old.get(addPositions.get(i)));
+					game.getInfo().setAgentCell(old.get(addPositions.get(i)), oldAgentPos.get(addPositions.get(i)));
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -743,6 +743,8 @@ public class CentralAgent extends Agent {
 
 					@Override
 					public void action() {
+						
+						showMessage("Sending really new discoveries to coord agent.");
 						
 						// Requests the map again sending the list of movements
 				        ACLMessage discoveriesMsg = new ACLMessage(ACLMessage.INFORM);

@@ -44,7 +44,7 @@ import sma.ontology.InfoGame;
 public class ScoutAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = false;
+	private boolean debugging = true;
 	private boolean debuggingPatrolingPath = false;
 	
 	private AID scoutCoordinatorAgent;

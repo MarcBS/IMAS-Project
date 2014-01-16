@@ -300,7 +300,7 @@ public class HarvesterAgent extends Agent {
       		if((objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
       				(Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1 ||
       				(Math.abs(objectivePosition.getRow() - c.getRow()) == 1) && (Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1))){
-      			showMessage("Curently at objective");
+      			showMessage("Currently at objective");
       			switch (objectivePosition.getCellType()){
       			case Cell.BUILDING:
       				
@@ -357,6 +357,7 @@ public class HarvesterAgent extends Agent {
   	      			AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
   	      			
   	      			showMessage("Sending Garbage Info to central.");
+  	      			
   	      			ACLMessage info = new ACLMessage(ACLMessage.INFORM);
   	      			info.clearAllReceiver();
   	      			info.addReceiver(centralAgent);
