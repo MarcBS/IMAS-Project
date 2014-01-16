@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
@@ -42,24 +43,50 @@ public class HarvesterAgent extends Agent implements Serializable{
 	// Indicates if we want to show the debugging messages
 	private boolean debugging = true;
 
+	private boolean cantMove = false;
+	
 	private AuxInfo mapInfo;
+	
+	private AID preference_over = null;
 
 	private AID harvesterCoordinatorAgent;
 
-	private Cell objectivePosition;
+	private Cell objectivePosition = new Cell(-1, -1); // initialize objective position until we received a garbage position
 	
 	private AStar astar;
+	
+	private HashMap<Integer, int[]> moviment = new HashMap<Integer, int[]>();
+	
+	boolean has_collision = false;
 
-	private boolean randomMovement = true;
+	private final int NORT = 1, SUD = 2, EST = 3, WEST = 4;
+	
+	private int contrari_colisio = 0;
+	
+	private AID myAID;
 	
 	private int carriedGarbage = 0;
 	
-	// array storing the not handled messages
-	private MessagesList messagesQueue = new MessagesList(this);
-
+	private boolean randomMovement = true;
 	
 	private ArrayList<Cell> objectives = new ArrayList<Cell>();
-	public HarvesterAgent(){}
+	
+	// array storing the not handled messages
+	private MessagesList messagesQueue = new MessagesList(this);
+	
+	private boolean followingOptimalPath = true;
+	private Cell lastOptimalPoint = null;
+
+	public HarvesterAgent()
+	{
+		int[] N = {1,0}, E={0,1}, S = {-1,0}, W= {0,-1};
+		moviment.put(NORT, N);
+		moviment.put(SUD, S);
+		moviment.put(EST, E);
+		moviment.put(WEST, W);
+		
+	}
+
 	
 	/**
 	   * A message is shown in the log area of the GUI
@@ -72,6 +99,8 @@ public class HarvesterAgent extends Agent implements Serializable{
 	}
 	
 	protected void setup(){
+		
+		 this.myAID = getAID();
 		
 		/**** Very Important Line (VIL) *********/
 	    this.setEnabledO2ACommunication(true, 1);
@@ -126,12 +155,20 @@ public class HarvesterAgent extends Agent implements Serializable{
 	 		fsm.registerState(new RequestGameInfo(this, harvesterCoordinatorAgent), "STATE_2");
 	 		// Behaviour to perform a FPSB auction
 	 		fsm.registerState(new FPSBAuction(this), "STATE_3");
+	 		// Behaviour to decide where to move and send that information to the HarvesterCoordinator
+	 		fsm.registerState(new MoveAgent(this, harvesterCoordinatorAgent), "STATE_4");
 
 	 		// FSM transitions
-	 		fsm.registerDefaultTransition("STATE_1", "STATE_2");
-	 		fsm.registerDefaultTransition("STATE_2", "STATE_3");
-	 		fsm.registerDefaultTransition("STATE_3", "STATE_2");
+	 		/*fsm.registerDefaultTransition("STATE_1", "STATE_2");
+            fsm.registerDefaultTransition("STATE_2", "STATE_4");
+            fsm.registerDefaultTransition("STATE_4", "STATE_3");
+            fsm.registerDefaultTransition("STATE_3", "STATE_2");*/
 
+            fsm.registerDefaultTransition("STATE_1", "STATE_3");
+     		fsm.registerDefaultTransition("STATE_3", "STATE_4");
+     		fsm.registerDefaultTransition("STATE_4", "STATE_2");
+     		fsm.registerDefaultTransition("STATE_2", "STATE_3");
+            
 	 		// Add behavior of the FSM
 	 		addBehaviour(fsm);
 	}
@@ -188,14 +225,18 @@ public class HarvesterAgent extends Agent implements Serializable{
 																			// about
 																			// the
 																			// game
+							astar = new AStar(mapInfo);
 							showMessage("Recieved game info from "+ reply.getSender());
-						} catch (UnreadableException e) {
+							okInfo = true;
+						} catch (Exception e) {
 							messagesQueue.add(reply);
 							System.err
 									.println(getLocalName()
 											+ " Recieved game info unsucceeded. Reason: "
 											+ e.getMessage());
-						} catch (ClassCastException cce){
+						} 
+						// USELESS!!!!!!
+						/*catch (ClassCastException cce){
 							try {
 								objectivePosition = (Cell) reply.getContentObject();
 								showMessage("Receiving objective position from "+receptor);
@@ -218,8 +259,8 @@ public class HarvesterAgent extends Agent implements Serializable{
 									.println(getLocalName()
 											+ " Recieved object position unsucceeded. Reason: "
 											+ ue.getMessage());
-							}
-						}
+							}*/
+						
 						break;
 					case ACLMessage.FAILURE:
 						System.err
@@ -249,6 +290,249 @@ public class HarvesterAgent extends Agent implements Serializable{
 	    }
 	}
 	
+	
+	protected class MoveAgent extends SimpleBehaviour {
+		private AID receptor;
+		
+		public MoveAgent(Agent a, AID r){
+			super(a);
+			this.receptor = r;
+		}
+		
+		private Cell moveNormally(){
+            
+            AID agent_aid = this.myAgent.getAID();
+            Cell c = mapInfo.getAgentCell(agent_aid);
+           
+            int avail_capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
+      		// since the objective is a building, the agent must be at distance 1
+      		if((objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
+      				(Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1 ||
+      				(Math.abs(objectivePosition.getRow() - c.getRow()) == 1) && (Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1))){
+      			showMessage("Currently at objective");
+      			switch (objectivePosition.getCellType()){
+      			case Cell.BUILDING:
+      				
+      				
+      				try {
+						if(avail_capacity > 0 && mapInfo.getCell(objectivePosition.getRow(), objectivePosition.getColumn()).getGarbageUnits() > 0 &&
+								mapInfo.getAgentCell(agent_aid).getAgent().getMaxUnits() > mapInfo.getAgentCell(agent_aid).getAgent().getUnits()){
+							
+							ServiceDescription searchCriterion = new ServiceDescription();
+						searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
+						AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
+						
+						showMessage("Sending Garbage Info to central.");
+						ACLMessage info = new ACLMessage(ACLMessage.INFORM);
+						info.clearAllReceiver();
+						info.addReceiver(centralAgent);
+						info.setProtocol(InteractionProtocol.FIPA_REQUEST);
+						
+						try {
+							info.setContentObject((Cell)objectivePosition);
+							send(info);
+						} catch (Exception e) {
+							e.printStackTrace();
+						}
+
+						
+						} else if (mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getUnits() > 0){
+							int points = 0;
+							Cell recyclingCenter = null;
+						for(Cell tmp : mapInfo.getRecyclingCenters()){
+							try {
+								
+								if(tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar())) > points){
+									points = tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar()));
+									recyclingCenter = tmp;
+								}
+							} catch (Exception e) {}
+						}
+						if(avail_capacity == 0 && objectivePosition.getGarbageUnits() > 0){
+							objectives.add(0, objectivePosition);
+						}
+						objectivePosition = recyclingCenter;
+						}
+					} catch (Exception e1) {
+						
+					}
+      				break;
+      				
+      			case Cell.RECYCLING_CENTER:
+      				if(mapInfo.getInfoAgent(agent_aid).getUnits() > 0){
+      					
+      					ServiceDescription searchCriterion = new ServiceDescription();
+  	      			searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
+  	      			AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
+  	      			
+  	      			showMessage("Sending Garbage Info to central.");
+  	      			
+  	      			ACLMessage info = new ACLMessage(ACLMessage.INFORM);
+  	      			info.clearAllReceiver();
+  	      			info.addReceiver(centralAgent);
+  	      			info.setProtocol(InteractionProtocol.FIPA_REQUEST);
+
+  	      		    try {
+  	      		    	info.setContentObject((Cell)objectivePosition);
+  	      		    	send(info);
+  	      		    } catch (Exception e) {
+  	      		    	e.printStackTrace();
+  	      		    }
+
+  	      		    
+      				} else{
+      					if(objectives.size() > 0){
+      						findNextObjective(); // get the next movement, using the Manhattan distance and the position in the stack
+      						//objectivePosition = objectives.remove(0); // get the first movement of the stack
+      					}else{
+      						objectivePosition = null;
+      					}
+      					
+      				}
+      				
+      				break;
+      			}
+            }else{
+                    //If the agents have some objective position to go use AStar if not random movement.
+                    if(objectivePosition.getRow() != -1){
+                           
+                            Cell newC = getBestPositionToObjective(mapInfo.getMap(), c, objectivePosition);
+                            if(newC == null || newC == c){
+                                    randomMovement = true;
+                                    try {
+										c = getRandomPosition(mapInfo.getMap(), c);
+									} catch (IOException e) {
+										// TODO Auto-generated catch block
+										e.printStackTrace();
+									}
+                            }else{
+                                    c = newC;                                                                              
+                            }
+                    }else{
+                            randomMovement = true;
+                            try {
+								c = getRandomPosition(mapInfo.getMap(), c);
+							} catch (IOException e) {
+								// TODO Auto-generated catch block
+								e.printStackTrace();
+							}
+                    }
+                    //c = getRandomPosition(mapInfo.getMap(), c);
+
+                    showMessage("New cell to move "+c);
+            }
+   
+            return c;
+		}
+		
+		public void action()
+		{
+			Cell actualPosition = mapInfo.getAgentCell(myAID);
+		    
+			// Collision avoidance module
+            Cell c = checkCollisions(mapInfo.getMap(), actualPosition);
+
+            // Move normally
+            if(c == null){
+                    if(followingOptimalPath){
+                            c = moveNormally();
+                    } else { // we have recently been avoiding a collision
+                            followingOptimalPath = true;
+                            // modify the optimal path adding the steps to go back to the lastOptimalPoint!!
+                            
+                            
+                            c = moveNormally();
+                    }
+            } else if(followingOptimalPath) { // We are avoiding a collision and we where recently following the optimal path
+                    followingOptimalPath = false;
+                    lastOptimalPoint = mapInfo.getAgentCell(this.myAgent.getAID());
+                    
+            }
+				
+           
+            // Send the cell
+            
+            ACLMessage reply2 = new ACLMessage(ACLMessage.INFORM);
+            reply2.clearAllReceiver();
+            reply2.addReceiver(receptor);
+            //reply2.setProtocol(InteractionProtocol.FIPA_REQUEST);
+            //reply2.setPerformative(ACLMessage.INFORM);
+            try {
+				reply2.setContentObject(c);
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} //Return a new cell to harvester coordinator
+            send(reply2);
+            showMessage("Sending the cell position to "+receptor);
+
+
+			
+			/*showMessage("STATE_4");
+			
+			
+			AID myAID = this.myAgent.getAID();
+			Cell c = mapInfo.getAgentCell(myAID);
+			// Send the cell
+        	ACLMessage reply2 = reply.createReply();
+  	      	reply2.setPerformative(ACLMessage.INFORM);
+  	      	try {	
+  	      		int avail_capacity = mapInfo.getInfoAgent(myAID).getMaxUnits() - mapInfo.getInfoAgent(myAID).getUnits();
+  	      		// since the objective is a building, the agent must be at distance 1
+  	      		if(avail_capacity > 0 && (objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
+  	      				Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1){
+  	      			showMessage("Curently at objective");
+  	      			switch (objectivePosition.getCellType()){
+  	      			case Cell.BUILDING:
+  	      				
+  	      				if(objectivePosition.getGarbageUnits() > 0){
+  	      					c.getAgent().setUnits(c.getAgent().getUnits() + 1);
+  	      					//mapInfo.getInfoAgent(myAID).setUnits(mapInfo.getInfoAgent(myAID).getUnits() + 1);
+  	      					objectivePosition.setGarbageUnits(objectivePosition.getGarbageUnits()-1);
+  	      				}
+  	      				break;
+  	      				
+  	      			case Cell.RECYCLING_CENTER:
+  	      				showMessage("TODO: recycle GARBAGE");
+  	      				break;
+  	      			}
+  	      		}else{
+	  	      		//If the agents have some objective position to go use AStar if not random movement.
+	  	      		if(objectivePosition.getRow() != -1){
+	  	      			
+	  	      			Cell newC = getBestPositionToObjective(mapInfo.getMap(), c, objectivePosition);
+	  	      			if(newC == null || newC == c){
+		  	      			c = getRandomPosition(mapInfo.getMap(), c);
+	  	      			}else{
+	  	      				c = newC;						  	      			
+	  	      			}
+	  	      		}else{
+	  	      			c = getRandomPosition(mapInfo.getMap(), c);
+	  	      		}
+  	      			//c = getRandomPosition(mapInfo.getMap(), c);
+
+  	      			showMessage("New cell to move "+c);
+  	      		}
+  	      		reply2.setContentObject(c); //Return a new cell to harvester coordinator
+  	      	} catch (Exception e1) {
+  	      		reply2.setPerformative(ACLMessage.FAILURE);
+  	      		System.err.println(e1.toString());
+  	      	}
+  	      	send(reply2);
+			showMessage("Sending the cell position to "+receptor);	*/			
+		}
+
+		@Override
+		public boolean done() {
+			return true;
+		}
+		
+		public int onEnd(){
+			showMessage("STATE_4: Position sent.");
+			return 0;
+	    }
+		
+	}
 	
 	protected class RequestGameInfo extends SimpleBehaviour {
 		private AID receptor;
@@ -307,118 +591,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 																				// game
 									
 									showMessage("Receiving game info from "+receptor);
-								    AID agent_aid = this.myAgent.getAID();
-									Cell c = mapInfo.getAgentCell(agent_aid);
-									// Send the cell
-						        	ACLMessage reply2 = reply.createReply();
-						  	      	reply2.setPerformative(ACLMessage.INFORM);
-						  	      	try {
-						  	      		int avail_capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
-						  	      		// since the objective is a building, the agent must be at distance 1
-						  	      		if(avail_capacity > 0 && (objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
-						  	      				Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1){
-						  	      			showMessage("Curently at objective");
-						  	      			switch (objectivePosition.getCellType()){
-						  	      			case Cell.BUILDING:
-						  	      				
-						  	      				if(mapInfo.getCell(objectivePosition.getRow(), objectivePosition.getColumn()).getGarbageUnits() > 0 &&
-						  	      						mapInfo.getAgentCell(agent_aid).getAgent().getMaxUnits() > mapInfo.getAgentCell(agent_aid).getAgent().getUnits()){
-						  	      					
-						  	      					ServiceDescription searchCriterion = new ServiceDescription();
-								  	      			searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
-								  	      			AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
-								  	      			
-								  	      			showMessage("Sending Garbage Info to central.");
-								  	      			ACLMessage info = new ACLMessage(ACLMessage.INFORM);
-								  	      			info.clearAllReceiver();
-								  	      			info.addReceiver(centralAgent);
-								  	      			info.setProtocol(InteractionProtocol.FIPA_REQUEST);
-								  	      			
-								  	      		    try {
-								  	      		    	info.setContentObject((Cell)objectivePosition);
-								  	      		    	send(info);
-								  	      		    } catch (Exception e) {
-								  	      		    	e.printStackTrace();
-								  	      		    }
-		
-								  	      		    
-						  	      				} else if (mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getUnits() > 0){
-						  	      					int points = 0;
-						  	      					Cell recyclingCenter = null;
-							  	      				for(Cell tmp : mapInfo.getRecyclingCenters()){
-								  	      				try {
-								  	      					
-								  	      					if(tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar())) > points){
-								  	      						points = tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar()));
-								  	      						recyclingCenter = tmp;
-								  	      					}
-								  	      				} catch (Exception e) {}
-							  	      				}
-							  	      				
-							  	      				objectivePosition = recyclingCenter;
-						  	      				}
-						  	      				break;
-						  	      				
-						  	      			case Cell.RECYCLING_CENTER:
-						  	      				if(mapInfo.getInfoAgent(agent_aid).getUnits() > 0){
-						  	      					
-						  	      					ServiceDescription searchCriterion = new ServiceDescription();
-								  	      			searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
-								  	      			AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
-								  	      			
-								  	      			showMessage("Sending Garbage Info to central.");
-								  	      			ACLMessage info = new ACLMessage(ACLMessage.INFORM);
-								  	      			info.clearAllReceiver();
-								  	      			info.addReceiver(centralAgent);
-								  	      			info.setProtocol(InteractionProtocol.FIPA_REQUEST);
-		
-								  	      		    try {
-								  	      		    	info.setContentObject((Cell)objectivePosition);
-								  	      		    	send(info);
-								  	      		    } catch (Exception e) {
-								  	      		    	e.printStackTrace();
-								  	      		    }
-		
-								  	      		    
-						  	      				} else{
-						  	      					if(objectives.size() > 0){
-						  	      						objectivePosition = objectives.remove(0); // get the first movement of the stack
-						  	      					}else{
-						  	      						objectivePosition = null;
-						  	      					}
-						  	      					
-						  	      				}
-						  	      				
-						  	      				break;
-						  	      			}
-						  	      		}else{
-							  	      		//If the agents have some objective position to go use AStar if not random movement.
-							  	      		if(objectivePosition.getRow() != -1){
-							  	      			
-							  	      			Cell newC = getBestPositionToObjective(mapInfo.getMap(), c, objectivePosition);
-							  	      			if(newC == null || newC == c){
-							  	      				randomMovement = true;
-								  	      			c = getRandomPosition(mapInfo.getMap(), c);
-							  	      			}else{
-							  	      				c = newC;						  	      			
-							  	      			}
-							  	      		}else{
-							  	      			randomMovement = true;
-							  	      			c = getRandomPosition(mapInfo.getMap(), c);
-							  	      		}
-						  	      			//c = getRandomPosition(mapInfo.getMap(), c);
-	
-						  	      			showMessage("New cell to move "+c);
-						  	      		}
-						  	      		reply2.setContentObject(c); //Return a new cell to harvester coordinator
-						  	      	} catch (Exception e1) {
-						  	      		reply2.setPerformative(ACLMessage.FAILURE);
-						  	      		System.err.println(e1.toString());
-						  	      	}
-						  	      	send(reply2);
-									showMessage("Sending the cell position to "+receptor);
-									
-									
+
 									okInfo = true;
 									showMessage("Recieved game info from "+ reply.getSender());
 								} catch (UnreadableException e) {
@@ -447,7 +620,6 @@ public class HarvesterAgent extends Agent implements Serializable{
 		}
 
 		public boolean done() {
-			showMessage("STATE_2 return OK");
 			return true;
 		}
 
@@ -482,10 +654,9 @@ public class HarvesterAgent extends Agent implements Serializable{
 						
 						case ACLMessage.INFORM:
 								try {
+									auctionInfo = (AuxGarbage) reply.getContentObject();
 									
 									showMessage("Receiving garbage info from "+ reply.getSender());
-									
-									auctionInfo = (AuxGarbage) reply.getContentObject();
 									
 									if(auctionInfo == null){
 										showMessage("There is no garbage!");
@@ -503,12 +674,13 @@ public class HarvesterAgent extends Agent implements Serializable{
 												+ " Recieved auction info unsucceeded. Reason: "
 												+ e.getMessage());
 								} catch (Exception e) {
+									messagesQueue.add(reply);
 									e.printStackTrace();
 								}
 						break;
 						
 						case ACLMessage.FAILURE:
-								System.err.println(getLocalName()
+							System.err.println(getLocalName()
 											+ " Recieved auction info unsucceeded. Reason: Performative was FAILURE");
 						break;
 						
@@ -524,8 +696,8 @@ public class HarvesterAgent extends Agent implements Serializable{
 			if(!end){
 			// Evaluate the auction
 			
-			AID agent_aid = this.myAgent.getAID();
-			Cell c = mapInfo.getAgentCell(agent_aid);
+			AID myAID = this.myAgent.getAID();
+			Cell c = mapInfo.getAgentCell(myAID);
 			
 			float distance1 = Math.abs(c.getColumn()-auctionInfo.getColumn()) + Math.abs(c.getRow()-auctionInfo.getRow());
 			List<Cell> recyclingCenters = mapInfo.getRecyclingCenters();
@@ -547,7 +719,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 				}
 				
 			}
-			float capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
+			float capacity = mapInfo.getInfoAgent(myAID).getMaxUnits() - mapInfo.getInfoAgent(myAID).getUnits();
 			try {
 				points = destination.getGarbagePoints(auctionInfo.getGarbageType());
 			} catch (Exception e2) {
@@ -598,21 +770,27 @@ public class HarvesterAgent extends Agent implements Serializable{
 									
 									showMessage("Winner: " + winner);
 									// update the objective position
-									if(agent_aid.equals(winner)){
-										if(objectives.size() == 0 && randomMovement == true){
-											randomMovement = false;
-											objectivePosition = auctionInfo.getInfo();
-										} else{
-											objectives.add(auctionInfo.getInfo());
-										}
-										/*
-										if(randomMovement == true || objectivePosition == null || objectivePosition.getRow() == -1){
-											randomMovement = false;
-											objectivePosition = auctionInfo.getInfo();
-										} else{
-											objectives.add(auctionInfo.getInfo());
-										}*/
-										showMessage("Objective position updated!!");
+//<<<<<<< HEAD
+//									if(agent_aid.equals(winner)){
+//										if(objectives.size() == 0 && randomMovement == true){
+//											randomMovement = false;
+//											objectivePosition = auctionInfo.getInfo();
+//										} else{
+//											objectives.add(auctionInfo.getInfo());
+//										}
+//										/*
+//										if(randomMovement == true || objectivePosition == null || objectivePosition.getRow() == -1){
+//											randomMovement = false;
+//											objectivePosition = auctionInfo.getInfo();
+//										} else{
+//											objectives.add(auctionInfo.getInfo());
+//										}*/
+//										showMessage("Objective position updated!!");
+//=======
+									if(myAID.equals(winner)){
+										objectivePosition = auctionInfo.getInfo();
+										showMessage("////////////////////Objective position updated!!");
+//>>>>>>> origin/debug
 									}
 									okInfo = true;
 									originalInfo = reply;
@@ -622,12 +800,13 @@ public class HarvesterAgent extends Agent implements Serializable{
 												+ " Recieved game info unsucceeded. Reason: "
 												+ e.getMessage());
 								} catch (Exception e) {
+									messagesQueue.add(reply);
 									e.printStackTrace();
 								}
 						break;
 						
 						case ACLMessage.FAILURE:
-								System.err.println(getLocalName()
+							System.err.println(getLocalName()
 											+ " Recieved game info unsucceeded. Reason: Performative was FAILURE");
 						break;
 						
@@ -650,7 +829,401 @@ public class HarvesterAgent extends Agent implements Serializable{
 		
 	}
 	
+	private int mapPosWithDirection(int[] pos, Cell actualPos)
+	{
+		int x = pos[0], y = pos[1], actual_x = actualPos.getRow(), actual_y = actualPos.getColumn();
+		
+		int x_dif = actual_x - x;
+		int y_dif = actual_y - y;
+		
+		if (x_dif == 1 && y_dif == 0)
+			return this.NORT;
+		if (x_dif == 0 && y_dif == 1)
+			return this.EST;
+		if (x_dif == -1 && y_dif == 0)
+			return this.SUD;
+		if ( x_dif == 0 && y_dif == -1)
+			return this.WEST;
+		
+		System.err.println("Position not correct");
+		return -1;
+	}
 	
+	private int getOppositeDirection (int direction)
+	{
+		if (direction == this.NORT)
+			return this.SUD;
+		if (direction == this.EST)
+			return this.WEST;
+		if (direction == this.SUD)
+			return this.NORT;
+		if (direction == this.WEST)
+			return this.EST;
+		
+		System.err.println("Direction not correct");
+		return -1;
+	}
+	
+	/*
+	 * Return a Cell to move in order to avoid collitions. Return null when there not exist collisions.
+	 */
+	private Cell checkCollisions(Cell[][] map, Cell actualPosition)
+	{
+		Cell positionToReturn = null;
+		
+		if (!this.has_collision)
+		{
+			ArrayList<int[]> listColisions = detectCollision(map, actualPosition);
+			if ( !listColisions.isEmpty())
+			{
+				for (int[] col : listColisions)
+				{
+					int xi = col[0], yi = col[1];
+					InfoAgent other_agent = map[xi][yi].getAgent();
+					
+					if (other_agent.hasCollision() && other_agent.getAID() != this.preference_over)
+					{
+						this.has_collision = true;
+						this.preference_over = null;
+						int other_direction = mapPosWithDirection(col, actualPosition);
+						this.contrari_colisio = getOppositeDirection(other_direction);
+					}
+					else if (!applyPolitic(col, map) && !this.cantMove)
+					{
+						this.has_collision = true;
+						this.preference_over = null;
+						int other_direction = mapPosWithDirection(col, actualPosition);
+						this.contrari_colisio = getOppositeDirection(other_direction);
+					}
+					else if (applyPolitic(col, map))
+					{
+						this.preference_over = other_agent.getAID();
+						if (other_agent.cantMove())
+						{
+							this.has_collision = true;
+							this.preference_over = null;
+							int other_direction = mapPosWithDirection(col, actualPosition);
+							this.contrari_colisio = getOppositeDirection(other_direction);
+						}
+					}
+				}
+			}
+			else 
+			{
+				this.has_collision = false;
+				this.contrari_colisio = -1;
+				this.cantMove = false;
+			}
+		}
+		else
+		{
+			ArrayList<int[]> listColisions = detectCollision(map, actualPosition);
+			if ( listColisions.isEmpty())
+			{
+				this.has_collision = false;
+				this.contrari_colisio = -1;
+				//this.cantMove = false; ???
+			}
+			else if (!listColisions.isEmpty() && this.cantMove)
+			{
+				for (int[] col : listColisions)	// Aquest for esta be????
+				{
+					int xi = col[0], yi = col[1];
+					InfoAgent other_agent = map[xi][yi].getAgent();
+					
+					this.has_collision = false;
+					this.contrari_colisio = -1;
+					this.preference_over = other_agent.getAID();
+				}
+			}
+			else if(!listColisions.isEmpty()) // if there is any collision
+			{
+				for (int[] col : listColisions) // for each collisions
+				{
+					int xi = col[0], yi = col[1];
+					InfoAgent other_agent = map[xi][yi].getAgent();
+					if (other_agent.cantMove()) // if the other agent can't move, then we have to give him priority
+					{
+						this.has_collision = true;
+						this.preference_over = null;
+						int other_direction = mapPosWithDirection(col, actualPosition);
+						this.contrari_colisio = getOppositeDirection(other_direction);
+						this.cantMove = true;
+					}
+				}		
+			}	
+		}
+		
+		// Let's decide where to move
+		if (this.has_collision)
+		{
+			if (this.contrari_colisio == this.NORT || this.contrari_colisio == this.SUD)
+			{
+				int directionToMove;
+				
+				// Random movement to contrari direction
+				Random r = new Random();
+				if ( r.nextInt(1) == 1 )
+					directionToMove = this.EST;	
+				else
+					directionToMove = this.WEST;
+				
+				if (canMoveToCell(actualPosition, directionToMove, map))
+				{
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				else if ( canMoveToCell(actualPosition, getOppositeDirection(directionToMove), map) )
+				{
+					directionToMove = getOppositeDirection(directionToMove);
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				// MOVE TO CONTRARI COLISIO
+				else if ( canMoveToCell(actualPosition, contrari_colisio, map) )
+				{
+					directionToMove = contrari_colisio;
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				
+				// CAS EN QUE HI HA PARETS
+				else if ( isSurroundedByWalls(actualPosition,map) )
+				{
+					this.cantMove = true;
+					positionToReturn = actualPosition;
+				}
+			}
+			
+			
+			else if (this.contrari_colisio == this.EST || this.contrari_colisio == this.WEST)
+			{
+				int directionToMove;
+				
+				// Random movement to contrari direction
+				Random r = new Random();
+				if ( r.nextInt(1) == 1 )
+					directionToMove = this.NORT;	
+				else
+					directionToMove = this.SUD;
+				
+				if (canMoveToCell(actualPosition, directionToMove, map))
+				{
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				else if ( canMoveToCell(actualPosition, getOppositeDirection(directionToMove), map) )
+				{
+					directionToMove = getOppositeDirection(directionToMove);
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				// MOVE TO CONTRARI COLISIO
+				else if ( canMoveToCell(actualPosition, contrari_colisio, map) )
+				{
+					directionToMove = contrari_colisio;
+					positionToReturn = map[ actualPosition.getRow() + moviment.get(directionToMove)[0] ] [actualPosition.getColumn() + moviment.get(directionToMove)[1]];
+				}
+				
+				// CAS EN QUE HI HA PARETS
+				else if ( isSurroundedByWalls(actualPosition,map) )
+				{
+					this.cantMove = true;
+					positionToReturn = actualPosition;
+				}
+			}
+			
+			// Update info agent in the new cell
+			try {
+				positionToReturn.removeAgent(this.myAID);
+				positionToReturn.addAgent(mapInfo.getInfoAgent(this.getAID()));
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} //Save infoagent to the new position
+			
+		}
+		
+		else // WE ARE GONNA MOVE OPTIMAL WAY
+		{
+			positionToReturn =  null; // MEANS THAT THERE IS NO COLLISION
+		}
+		
+		// Update INFOAGENT
+		InfoAgent thisInfoAgent = mapInfo.getInfoAgent(this.myAID);
+		thisInfoAgent.setHasCollision(this.has_collision); 
+		thisInfoAgent.setCantMove(this.cantMove);
+		
+		return positionToReturn;
+	}
+	
+	private boolean isSurroundedByWalls (Cell actualPosition, Cell[][] map)
+	{
+		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = mapInfo.getMapRows();
+		maxColumns = mapInfo.getMapColumns();
+		
+		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
+		List<int[]> intList = Arrays.asList(nearPlaces);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+		
+		int valid_position = 0, not_street_cells = 0;
+		
+		int[] list = null;
+		// Search a cell street
+		while (arrayList.size() != 0) {
+			Random a = new Random();
+			list = arrayList.remove(a.nextInt(arrayList.size()));
+
+			xi = list[0];
+			yi = list[1];
+
+			if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+				Cell position = map[xi][yi];
+				valid_position++;
+				if (position.getCellType() != Cell.STREET) {
+					not_street_cells++;
+				}
+			}
+		}
+		// If the agent has only 1 factible movement and the other non valid position are street cells, then the agent is surrounded by walls
+		if (valid_position - not_street_cells == 1)
+			return true;
+		else return false;
+	}
+	
+	private boolean canMoveToCell (Cell actualPosition, int DIRECTION, Cell[][] map)
+	{
+		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = mapInfo.getMapRows();
+		maxColumns = mapInfo.getMapColumns();
+		
+		int[] list = moviment.get(DIRECTION);
+		xi = list[0] + x;
+		yi = list[1] + y;
+			
+		if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+			Cell dest = map[xi][yi];
+			if (dest.getCellType() == Cell.STREET) {
+				if(!dest.isThereAnAgent())
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	private ArrayList<int[]> detectCollision (Cell[][] map, Cell actualPosition)
+	{
+		int x=actualPosition.getRow(), y=actualPosition.getColumn(), z = 0, xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = mapInfo.getMapRows();
+		maxColumns = mapInfo.getMapColumns();
+		
+		ArrayList<int[]> list_colisions = new ArrayList<int[]>();
+		
+		int [][] nearPlaces = {{x+1,y},{x,y+1},{x-1,y},{x,y-1}};
+		List<int[]> intList = Arrays.asList(nearPlaces);
+		ArrayList<int[]> arrayList = new ArrayList<int[]>(intList);
+		
+		int[] list = null;
+		// Search a cell street
+		while (arrayList.size() != 0) {
+			Random a = new Random();
+			list = arrayList.remove(a.nextInt(arrayList.size()));
+
+			xi = list[0];
+			yi = list[1];
+
+			if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns) {
+				Cell position = map[xi][yi];
+				if (position.getCellType() == Cell.STREET) {
+					if(position.isThereAnAgent())
+					{
+						int[] idx_colision = {xi,yi};
+						list_colisions.add(idx_colision);
+					}
+				}
+			}
+		}
+		
+		return list_colisions;
+	}
+	
+	private boolean applyPolitic(int[] colision_pos, Cell[][] map)
+	{
+		int xi=0, yi=0;
+		int maxRows=0, maxColumns=0;
+		maxRows = mapInfo.getMapRows();
+		maxColumns = mapInfo.getMapColumns();
+		Cell newPosition;
+		
+		xi = colision_pos[0]; 
+		yi = colision_pos[1];
+		
+		if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns)
+		{
+			newPosition = map[xi][yi];
+			if(Cell.STREET == newPosition.getCellType() )	//Check the limits of the map
+			{ 
+				/* If there is a scout agent in front of */ 
+				if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT)
+					return true;
+				
+				  /*If there is a harvester agent in front of */
+				else if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.HARVESTER)
+				{
+					// TODO
+					InfoAgent infoagent = mapInfo.getInfoAgent(this.myAID);
+					InfoAgent other_infoagent = newPosition.getAgent();
+					int garbageAmount = infoagent.getGarbageUnits()[InfoAgent.GLASS] + infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + infoagent.getGarbageUnits()[InfoAgent.METAL] + infoagent.getGarbageUnits()[InfoAgent.PAPER];
+					int other_garbageAmount = other_infoagent.getGarbageUnits()[InfoAgent.GLASS] + other_infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + other_infoagent.getGarbageUnits()[InfoAgent.METAL] + other_infoagent.getGarbageUnits()[InfoAgent.PAPER];
+					
+					 /* The harvester carrying more garbage is the one that is going to move */ 
+					if (garbageAmount > other_garbageAmount)
+						return true;
+					
+					else if (garbageAmount < other_garbageAmount)
+						return false;
+					
+					else	 /*Random decision by ID in case of draw*/ 
+					{
+						int h1 =  mapInfo.getInfoAgent(this.myAID).getAID().hashCode();
+						int h2 = newPosition.getAgent().getAID().hashCode();
+						if (h1 > h2)
+						{
+							return true;
+						}
+						else
+							return false;
+					}
+				}
+				  /* If there is not an agent */  
+				else
+				{
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+	
+	private void findNextObjective(){
+		float best = Float.POSITIVE_INFINITY;
+		int position = 0;
+		int final_pos = 0;
+		Cell curr_pos = mapInfo.getAgentCell(this.getAID());
+		for(Cell o : objectives){
+			float distance = Math.abs(curr_pos.getRow() - o.getRow()) + Math.abs(curr_pos.getColumn() - o.getColumn());
+			distance += position/objectives.size();
+			if(best > distance){
+				best = distance;
+				final_pos = position;
+			}
+			position++;
+		}
+		
+		objectivePosition = objectives.remove(final_pos);
+		System.err.println("NEW OBJECTIVE: "+objectivePosition + "; pos = " + curr_pos);
+	}
 	
 	private Cell getBestPositionToObjective(Cell[][] cells, Cell actualPosition, Cell objectivePosition) {
 		
@@ -658,64 +1231,34 @@ public class HarvesterAgent extends Agent implements Serializable{
 		
 		showMessage("I am in the cell = ["+actualPosition.getRow()+","+actualPosition.getColumn()+"]");
 		showMessage("I wanna go to the cell = ["+objectivePosition.getRow()+","+objectivePosition.getColumn()+"]");
-		astar = new AStar(mapInfo);
+		
 		newPosition = astar.shortestPath(cells, actualPosition, objectivePosition);
 		
-		if(newPosition != null){
-			//The new position is occupied by someone?
-			if(newPosition.isThereAnAgent()){
-				switch (newPosition.getAgent().getAgentType()){
-					case InfoAgent.SCOUT:
-						try {
-							newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); 
-						} catch (Exception e) {
-							showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+		int xi = newPosition.getRow();
+		int yi = newPosition.getColumn();
+		int maxRows = mapInfo.getMapRows();
+		int maxColumns = mapInfo.getMapColumns();
+		
+		if (xi < maxRows && xi >= 0 && yi >= 0 && yi < maxColumns)
+		{
+				Cell position = cells[xi][yi];
+				if (position.getCellType() == Cell.STREET) {
+					try {
+						if (!newPosition.equals(actualPosition))
+						{
+							newPosition.removeAgent(this.myAID);
+							newPosition.addAgent(mapInfo.getInfoAgent(this.getAID()));
 						}
-						break;
-					case InfoAgent.HARVESTER:
-						InfoAgent infoagent = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent);
-						InfoAgent other_infoagent = newPosition.getAgent();
-						int garbageAmount = infoagent.getGarbageUnits()[InfoAgent.GLASS] + infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + infoagent.getGarbageUnits()[InfoAgent.METAL] + infoagent.getGarbageUnits()[InfoAgent.PAPER];
-						int other_garbageAmount = other_infoagent.getGarbageUnits()[InfoAgent.GLASS] + other_infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + other_infoagent.getGarbageUnits()[InfoAgent.METAL] + other_infoagent.getGarbageUnits()[InfoAgent.PAPER];
-						
-						/* The harvester carrying more garbage is the one that is going to move */
-						if (garbageAmount > other_garbageAmount){
-							try {
-								newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); 
-							} catch (Exception e) {
-								showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
-							}
-						}else if(garbageAmount < other_garbageAmount){
-							newPosition = moveToFreePlace(cells, actualPosition, newPosition, mapInfo.getInfoAgent(this.getAID()));
-							try {
-								newPosition.addAgent(mapInfo.getInfoAgent(this.getAID()));
-							} catch (Exception e) {
-								e.printStackTrace();
-							} 
-						}else{
-							int h1 = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent).getAID().hashCode();
-							int h2 = newPosition.getAgent().getAID().hashCode();
-							if (h1 > h2){
-								try {
-									newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
-									//actualPosition.removeAgent(actualPosition.getAgent());
-								} catch (Exception e) {
-									showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
-								}
-							}
-						}
-						
-						break;
+					} catch (Exception e) {
+						e.printStackTrace();
+					} 
+					
 				}
-			}else{
-				try {
-					newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); 
-				} catch (Exception e) {
-					showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
-				}
-			}
 		}
-
+		
+		
+		//newPosition = checkIfPositionIsOccupied(newPosition, cells, actualPosition);
+		
 		return newPosition;
 	}
 
@@ -783,8 +1326,19 @@ public class HarvesterAgent extends Agent implements Serializable{
 				newPosition = map[xi][yi];
 				if(Cell.STREET == newPosition.getCellType() )	//Check the limits of the map
 				{ 
+					try {
+						showMessage("Position before moving "+"["+x+","+y+"]");
+						newPosition.removeAgent(this.getAID());
+						newPosition.addAgent(mapInfo.getInfoAgent(this.getAID())); //Save infoagent to the new position
+						positionToReturn = newPosition;
+						//actualPosition.removeAgent(actualPosition.getAgent());
+					} catch (Exception e) {
+						showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
+					}
+					trobat = true;
+					
 					 /* If there is a scout agent in front of */ 
-					if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT)
+					/*if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.SCOUT)
 					{
 						try {
 							showMessage("Position before moving "+"["+x+","+y+"]");
@@ -796,7 +1350,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 						}
 						trobat = true;
 					}
-					 /* If there is a harvester agent in front of */
+					  If there is a harvester agent in front of 
 					else if (newPosition.isThereAnAgent() && newPosition.getAgent().getAgentType() == InfoAgent.HARVESTER)
 					{
 						// TODO
@@ -805,7 +1359,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 						int garbageAmount = infoagent.getGarbageUnits()[InfoAgent.GLASS] + infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + infoagent.getGarbageUnits()[InfoAgent.METAL] + infoagent.getGarbageUnits()[InfoAgent.PAPER];
 						int other_garbageAmount = other_infoagent.getGarbageUnits()[InfoAgent.GLASS] + other_infoagent.getGarbageUnits()[InfoAgent.PLASTIC] + other_infoagent.getGarbageUnits()[InfoAgent.METAL] + other_infoagent.getGarbageUnits()[InfoAgent.PAPER];
 						
-						/* The harvester carrying more garbage is the one that is going to move */
+						 The harvester carrying more garbage is the one that is going to move 
 						if (garbageAmount > other_garbageAmount)
 						{
 							try {
@@ -824,7 +1378,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 							// Do nothing
 						}
 						
-						else	/* Random decision by ID in case of draw */
+						else	 Random decision by ID in case of draw 
 						{
 							int h1 = mapInfo.getInfoAgent(this.harvesterCoordinatorAgent).getAID().hashCode();
 							int h2 = newPosition.getAgent().getAID().hashCode();
@@ -842,7 +1396,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 							}
 						}
 					}
-					 /* If there is not an agent */ 
+					  If there is not an agent  
 					else
 					{
 						try {
@@ -854,7 +1408,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 							showMessage("ERROR: Failed to save the infoagent to the new position: "+e.getMessage());
 						}
 						trobat = true;		
-					}
+					}*/
 				}
 			}
 		}

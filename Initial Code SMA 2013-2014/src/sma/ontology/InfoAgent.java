@@ -16,8 +16,11 @@ public class InfoAgent extends Object implements java.io.Serializable {
 	final static public int HARVESTER = 1;
 
 	private int typeAgent = -1;
-	private AID aid;
+	private AID aid = null;
 
+	private boolean has_collision = false;
+	private boolean cantMove = false;
+	
 	private boolean[] garbageType = { false, false, false, false }; //(Glass, Plastic, Metal, Paper)
 	
 	/* List of garbage type units carrying by the Harvester */
@@ -34,8 +37,28 @@ public class InfoAgent extends Object implements java.io.Serializable {
 
 	private int currentType = -1;
 
-	/*
-	 * NOT USEFUL
+
+	public boolean hasCollision()
+	{
+		return this.has_collision;
+	}
+	
+	public void setHasCollision(boolean bol)
+	{
+		this.has_collision = bol;
+	}
+	
+	public void setCantMove(boolean bol)
+	{
+		this.cantMove = bol;
+	}
+	
+	public boolean cantMove()
+	{
+		return cantMove;
+	}
+
+	/* NOT USEFUL
 	public boolean[] getGarbageType() {
 		return garbageType;
 	}*/
@@ -187,5 +210,7 @@ public class InfoAgent extends Object implements java.io.Serializable {
 	public int[] getGarbageUnits() {
 		return garbageUnits;
 	}
+	
+
 
 } //endof class InfoAgent

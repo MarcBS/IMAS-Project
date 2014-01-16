@@ -202,7 +202,7 @@ public class AuxInfo implements java.io.Serializable {
 		while(it.hasNext() && !trobat) {
 		    cell = it.next();
 			InfoAgent agent = cell.getAgent();
-			if (agent.getAID().equals(aid)){
+			if (agent != null && agent.getAID().equals(aid)){
 				trobat = true;
 			}			
 		}
@@ -223,7 +223,7 @@ public class AuxInfo implements java.io.Serializable {
 		while(it.hasNext() && !trobat) {
 		    cell = it.next();
 			agent = cell.getAgent();
-			if (agent.getAID().equals(aid)){
+			if (agent != null && agent.getAID().equals(aid)){
 				trobat = true;
 			}			
 		}

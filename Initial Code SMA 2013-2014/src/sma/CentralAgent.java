@@ -45,7 +45,7 @@ import java.util.*;
 public class CentralAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = false;
+	private boolean debugging = true;
 
 	private sma.gui.GraphicInterface gui;
 	private sma.ontology.InfoGame game;
@@ -61,7 +61,7 @@ public class CentralAgent extends Agent {
 	private int newDiscover = 0;
 	private int totalGarbage = 0;
 	private int totalUnitsGarbage = 0;
-	private int haversterUnits;
+	private int haversterUnits = 0;
 	private ArrayList<Integer> gCenters;
 	private HashMap<AID, Integer> harvester_points = new HashMap<AID, Integer>();
 	private int maxPossiblePoints=0;
@@ -72,14 +72,10 @@ public class CentralAgent extends Agent {
 	private ArrayList newDiscoveries = new ArrayList();
 	
 	// array storing the not handled messages
-	private MessagesList messagesQueue = new MessagesList(this);
-	
-	// points of the harvesters
-	
-	
-	
+	private MessagesList messagesQueue = new MessagesList(this);	
 	
 	private boolean movements_updated = false;
+
 	
 	public CentralAgent() {
 		super();
@@ -273,6 +269,9 @@ public class CentralAgent extends Agent {
 		ArrayList<Cell> oldAgentPos = new ArrayList<Cell>();
 		ArrayList<Cell> cell_processed = new ArrayList<Cell>();
 		ArrayList<InfoAgent> old = new ArrayList<InfoAgent>();
+		ArrayList<Integer> addPositions = new ArrayList<Integer>(); // order in which the agents must be added to the map
+		ArrayList<Integer> movingPos = new ArrayList<Integer>(); // indices of the agents that are moving
+		ArrayList<Integer> standPos = new ArrayList<Integer>(); // indices of the agents that are standing still
 		int k = 0;
 		boolean mov_processed = false;
 		
@@ -286,6 +285,7 @@ public class CentralAgent extends Agent {
 			Cell[][] map = game.getInfo().getMap();
 			//(int i = 0; i < map.length; i++){
 			int i = 0; int j = 0;boolean found = false;
+			
 			while( i < map.length && !found){
 				j = 0;
 				while(j < map[i].length && !found){
@@ -299,13 +299,25 @@ public class CentralAgent extends Agent {
 				}
 				i++;
 			}
+			
 			if(found){
+				int addPos;
+				// We only check if this is any agent that does not want to move
+				if(oldAgentPos.get(k).getRow() == pos_row && oldAgentPos.get(k).getColumn() == pos_col){
+					addPos = 0;
+					standPos.add(k);
+				} else {
+					addPos = k;
+					movingPos.add(k);
+				}
+				
 				// get the InfoAgent of this Cell
 				old.add(oldAgentPos.get(k).getAgent());
 	
 			
 				// set the InfoAgent to null
 				try {
+					System.err.println(oldAgentPos.get(k));
 					oldAgentPos.get(k).removeAgent(old.get(k));
 				} catch (Exception e1) {
 					
@@ -319,7 +331,7 @@ public class CentralAgent extends Agent {
 						try{
 							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
 								found = true;
-								newAgentPos.add(map[i][j]);
+								newAgentPos.add(addPos, map[i][j]);
 								k++;
 							}
 						}catch(Exception e){}
@@ -333,6 +345,10 @@ public class CentralAgent extends Agent {
 			}
 	
 		}
+		
+		addPositions.addAll(standPos);
+		addPositions.addAll(movingPos);
+		
 		/* Up to this point, all the cells don't have any InfoAgent inside. In the following loop, we are gonna put the InfoAgents into new positions */
 		for (int i=0; i<k; i++)
 		{
@@ -343,21 +359,23 @@ public class CentralAgent extends Agent {
 					mov_processed = true;				
 			}
 			
-			/* If we have already put a InfoAgent in this cell in a previous movement already processed, then the Agent that wants to move to this cell is not allowed. */
 			if( !mov_processed ){
 				try {
-					newAgentPos.get(i).addAgent(old.get(i));
+					newAgentPos.get(i).addAgent(old.get(addPositions.get(i)));
+					game.getInfo().setAgentCell(old.get(addPositions.get(i)), newAgentPos.get(i));
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-				game.getInfo().setAgentCell(old.get(i), newAgentPos.get(i));
 				cell_processed.add(newAgentPos.get(i));
 				
+			/* If we have already put a InfoAgent in this cell in a previous movement already processed, then the Agent that wants to move to this cell is not allowed. */
 			} else{ 
-				//System.err.println("There is an agent in this cell");
+				System.err.println("There is an agent in this cell");
 				try {
-					oldAgentPos.get(i).addAgent(old.get(i));
+					// We do not move it from its old position
+					oldAgentPos.get(addPositions.get(i)).addAgent(old.get(addPositions.get(i)));
+					game.getInfo().setAgentCell(old.get(addPositions.get(i)), oldAgentPos.get(addPositions.get(i)));
 				} catch (Exception e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -369,6 +387,8 @@ public class CentralAgent extends Agent {
 		return true;
 	}
 
+	
+	
 	/*************************************************************************/
 
 	/**
@@ -463,14 +483,27 @@ public class CentralAgent extends Agent {
 				ACLMessage msg = messagesQueue.getMessage();
 				
 				try {
-					Object contentRebut = (Object)msg.getContent();
-
-					if(msg.getContentObject() instanceof ArrayList<?> && processMovements(msg.getContentObject())) {
-						turnLastMap = game.getTurn();
-						showMessage("Movements applied.");
-						reply = msg.createReply();
-						reply.setPerformative(ACLMessage.AGREE);
-						okRR = true;
+//<<<<<<< HEAD
+//					Object contentRebut = (Object)msg.getContent();
+//
+//					if(msg.getContentObject() instanceof ArrayList<?> && processMovements(msg.getContentObject())) {
+//						turnLastMap = game.getTurn();
+//						showMessage("Movements applied.");
+//						reply = msg.createReply();
+//						reply.setPerformative(ACLMessage.AGREE);
+//						okRR = true;
+//=======
+					Object contentRebut = (Object)msg.getContentObject();
+					if(contentRebut instanceof ArrayList<?>){
+						boolean result = processMovements(msg.getContentObject());
+						if(result) {
+							turnLastMap = game.getTurn();
+							showMessage("Movements applied.");
+							reply = msg.createReply();
+							reply.setPerformative(ACLMessage.AGREE);
+							okRR = true;
+						}
+//>>>>>>> origin/debug
 					} else {
 			        	messagesQueue.add(msg);
 			        }
@@ -847,6 +880,8 @@ public class CentralAgent extends Agent {
 					@Override
 					public void action() {
 						
+						showMessage("Sending really new discoveries to coord agent.");
+						
 						// Requests the map again sending the list of movements
 				        ACLMessage discoveriesMsg = new ACLMessage(ACLMessage.INFORM);
 				        discoveriesMsg.clearAllReceiver();
@@ -873,6 +908,112 @@ public class CentralAgent extends Agent {
 				    }
 				}
 
+				
+				
+				/**
+				 * Reads the movements, applies them and sends an agree reply
+				 * @author Alex Pardo Fernandez
+				 *
+				 */
+				private class UpdateGarbageHarvester extends OneShotBehaviour{
+					
+					public UpdateGarbageHarvester(CentralAgent myAgent) {
+						super(myAgent);
+						
+					}
+					@Override
+					public void action() {
+
+						showMessage("Reading updates from Harvesters.");
+						
+						boolean okRR = false;
+						ACLMessage reply = null;
+						int counter = 0;
+						while(!okRR && counter < messagesQueue.size()){
+							ACLMessage msg = messagesQueue.getMessage();
+							counter++;
+							
+							try {
+								Object contentRebut = (Object)msg.getContentObject();
+								
+								if(msg.getSender().getLocalName().startsWith(harvesterName)){
+									AID senderName = msg.getSender();
+									showMessage("Message from " + msg.getSender().getLocalName());
+									Cell c = game.getInfo().getAgentCell(senderName);
+										
+									Cell b = (Cell) contentRebut;
+									int tmp;
+									switch(b.getCellType()){
+									case Cell.BUILDING:
+										showMessage(Integer.toString(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentType()));
+										if(c.getAgent().getCurrentTypeChar() == b.getGarbageType() || c.getAgent().getCurrentType() == -1){
+											if(game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits() > 0){
+												// set harvester garbage type
+												game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(b.getGarbageType());
+												// increase the counter for the harvester
+												tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+												game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp + 1);
+												// decrease the counter for the building
+												tmp = game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits();
+												game.getInfo().getCell(b.getRow(), b.getColumn()).setGarbageUnits(tmp - 1);
+											}
+										} else{
+											System.err.println("Harvester " + senderName + " performing wrong garbage operation");
+										}
+										
+										reply = msg.createReply();
+										reply.setPerformative(ACLMessage.AGREE);
+										
+										break;
+										
+									case Cell.RECYCLING_CENTER:
+										if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() > 0){
+											// decrease the counter for the harvester
+											tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+											game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp - 1);
+											String garbage = String.valueOf(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentTypeChar());
+											if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 0){
+											game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
+											}
+											// add the points
+											tmp = harvester_points.remove(senderName);
+											harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
+											haversterUnits++;
+											
+											reply = msg.createReply();
+											reply.setPerformative(ACLMessage.AGREE);		
+										}
+										break;
+										
+									default: 
+											break;
+									}
+									
+								
+							
+								} else {
+						        	messagesQueue.add(msg);
+						        }
+							}catch (Exception e){
+								e.printStackTrace();
+								messagesQueue.add(msg);
+							}
+						}
+						
+				        messagesQueue.endRetrieval();
+				        
+						if( reply != null){
+							send(reply);
+						}else{
+							showMessage("No garbage interaction found.");
+						}
+						
+						
+					}
+				
+
+					
+				}
 			  
 			/*************************************************************************/
 		
@@ -950,43 +1091,57 @@ public class CentralAgent extends Agent {
 		 * @param disc ArrayList with all the garbage positions found.
 		 * @return ArrayList with all the really new garbages.
 		 */
-		private ArrayList checkIfNewDiscoveries(ArrayList disc){
+		private ArrayList checkIfNewDiscoveries(ArrayList disc) throws Exception {
 			
-			ArrayList trueDisc = new ArrayList();
-			ArrayList<Integer> toDelete = new ArrayList<Integer>();
-			java.util.List<Cell> list = game.getBuildingsGarbage();
-			int count = 0;
-			// we go through all the garbages that have not been detected yet
-			for(Cell g : list){
-				boolean found = false;
-				int i = 0;
-				// and compare them with all the discovered garbages by the scouts
-				while(!found && i < disc.size()){
-					ArrayList g2 = (ArrayList)disc.get(i);
-					if((int)g2.get(0) == g.getRow() && (int)g2.get(1) == g.getColumn()){
-						found = true;
-					} else {
-						i++;
+			try {
+				ArrayList trueDisc = new ArrayList();
+				ArrayList<Integer> toDelete = new ArrayList<Integer>();
+				java.util.List<Cell> list = game.getBuildingsGarbage();
+				int count = 0;
+				// we go through all the garbages that have not been detected yet
+				for(Cell g : list){
+					boolean found = false;
+					int i = 0;
+					// and compare them with all the discovered garbages by the scouts
+					while(!found && i < disc.size()){
+						ArrayList g2 = (ArrayList)disc.get(i);
+						if((int)g2.get(0) == g.getRow() && (int)g2.get(1) == g.getColumn()){
+							found = true;
+						} else {
+							i++;
+						}
 					}
+					// if we have found a true new position, then we add it to the 
+					// list of true new discoveries (trueDisc) and delete it from
+					// the rest of the lists.
+					if(found){
+						trueDisc.add((ArrayList)disc.get(i));
+						disc.remove(i);
+						toDelete.add(count);
+					}
+					count++;
 				}
-				// if we have found a true new position, then we add it to the 
-				// list of true new discoveries (trueDisc) and delete it from
-				// the rest of the lists.
-				if(found){
-					newDiscover++;
-					trueDisc.add((ArrayList)disc.get(i));
-					disc.remove(i);
-					toDelete.add(count);
+//<<<<<<< HEAD
+//				// if we have found a true new position, then we add it to the 
+//				// list of true new discoveries (trueDisc) and delete it from
+//				// the rest of the lists.
+//				if(found){
+//					newDiscover++;
+//					trueDisc.add((ArrayList)disc.get(i));
+//					disc.remove(i);
+//					toDelete.add(count);
+//=======
+				// Deletes all the found garbages from the list in "game".
+				for(int i : toDelete){
+					list.remove(i);
+//>>>>>>> origin/debug
 				}
-				count++;
+				game.setBuildingsGarbage(list);
+				
+				return trueDisc;
+			} catch (Exception e){
+				throw new Exception("This ArrayList is not a list of discoveries!!!");
 			}
-			// Deletes all the found garbages from the list in "game".
-			for(int i : toDelete){
-				list.remove(i);
-			}
-			game.setBuildingsGarbage(list);
-			
-			return trueDisc;
 		}
 
 	}
