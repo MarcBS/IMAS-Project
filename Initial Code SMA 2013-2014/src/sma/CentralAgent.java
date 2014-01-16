@@ -268,6 +268,8 @@ public class CentralAgent extends Agent {
 		ArrayList<Cell> oldAgentPos = new ArrayList<Cell>();
 		ArrayList<Cell> cell_processed = new ArrayList<Cell>();
 		ArrayList<InfoAgent> old = new ArrayList<InfoAgent>();
+		ArrayList<Cell> original_cell = new ArrayList<Cell>();
+		 
 		ArrayList<Integer> addPositions = new ArrayList<Integer>(); // order in which the agents must be added to the map
 		ArrayList<Integer> movingPos = new ArrayList<Integer>(); // indices of the agents that are moving
 		ArrayList<Integer> standPos = new ArrayList<Integer>(); // indices of the agents that are standing still
@@ -281,13 +283,20 @@ public class CentralAgent extends Agent {
 			if(!c.isThereAnAgent()){ continue;}
 	
 			String agent_id = c.getAgent().getAID().getName();
+			AID agent_aid = c.getAgent().getAID();
+			
 			int pos_col = c.getColumn();
 			int pos_row = c.getRow();
 			// find the current Cell of the agent
 			Cell[][] map = game.getInfo().getMap();
 			//(int i = 0; i < map.length; i++){
 			int i = 0; int j = 0;boolean found = false;
-			
+			Cell tmp = game.getInfo().getAgentCell(agent_aid);
+			if(tmp != null){
+				oldAgentPos.add(tmp);
+				found = true;
+			}
+			/*
 			while( i < map.length && !found){
 				j = 0;
 				while(j < map[i].length && !found){
@@ -301,18 +310,19 @@ public class CentralAgent extends Agent {
 				}
 				i++;
 			}
-			
+			*/
 			if(found){
-				int addPos;
+				original_cell.add(game.getInfo().getAgentCell(agent_aid));
+				//int addPos;
 				// We only check if this is any agent that does not want to move
-				if(oldAgentPos.get(k).getRow() == pos_row && oldAgentPos.get(k).getColumn() == pos_col){
+				/*if(oldAgentPos.get(k).getRow() == pos_row && oldAgentPos.get(k).getColumn() == pos_col){
 					addPos = 0;
 					standPos.add(k);
 				} else {
 					addPos = k;
 					movingPos.add(k);
-				}
-				
+				}*/
+				movingPos.add(k);
 				old.add(oldAgentPos.get(k).getAgent());
 	
 			
@@ -332,7 +342,7 @@ public class CentralAgent extends Agent {
 						try{
 							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
 								found = true;
-								newAgentPos.add(addPos, map[i][j]);
+								newAgentPos.add(map[i][j]);
 								k++;
 							}
 						}catch(Exception e){}
@@ -347,7 +357,7 @@ public class CentralAgent extends Agent {
 	
 		}		
 		
-		addPositions.addAll(standPos);
+		//addPositions.addAll(standPos);
 		addPositions.addAll(movingPos);
 		
 		// Check exchanging positions (crashes)
@@ -362,6 +372,7 @@ public class CentralAgent extends Agent {
 					lenChecked++;
 				}
 				if(j != i && !trobat){ // they are not the same agent
+					
 					AID aid_j = old.get(addPositions.get(j)).getAID();
 					AID aid_i = old.get(addPositions.get(i)).getAID();
 					Cell old_pos_j = oldAgentPos.get(addPositions.get(j));
@@ -404,11 +415,22 @@ public class CentralAgent extends Agent {
 			
 			if( !mov_processed ){
 				try {
+					
 					newAgentPos.get(i).addAgent(old.get(addPositions.get(i)));
 					game.getInfo().setAgentCell(old.get(addPositions.get(i)), newAgentPos.get(i));
+
+					
 				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
+					
+					try {
+						oldAgentPos.get(addPositions.get(i)).removeAgent(old.get(addPositions.get(i)).getAID());
+						oldAgentPos.get(addPositions.get(i)).addAgent(old.get(addPositions.get(i)));
+						game.getInfo().setAgentCell(old.get(addPositions.get(i)), oldAgentPos.get(addPositions.get(i)));
+					} catch (Exception e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
+					
 				}
 				cell_processed.add(newAgentPos.get(i));
 				

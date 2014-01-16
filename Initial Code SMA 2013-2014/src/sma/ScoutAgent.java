@@ -460,7 +460,7 @@ public class ScoutAgent extends Agent {
   	      		
   	      		if(c == null){
 	  	      		try {
-						c = getRandomPosition(auxInfo.getMap(), c);
+						c = getRandomPosition(auxInfo.getMap(), auxInfo.getAgentCell(this.myAgent.getAID()));
 						showMessage("Doing random movement.");
 					} catch (IOException e) {
 						e.printStackTrace();

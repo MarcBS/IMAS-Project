@@ -326,7 +326,6 @@ public class HarvesterAgent extends Agent implements Serializable{
 						info.clearAllReceiver();
 						info.addReceiver(centralAgent);
 						info.setProtocol(InteractionProtocol.FIPA_REQUEST);
-						
 						try {
 							info.setContentObject((Cell)objectivePosition);
 							send(info);
@@ -338,20 +337,25 @@ public class HarvesterAgent extends Agent implements Serializable{
 						} else if (mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getUnits() > 0){
 							int points = 0;
 							Cell recyclingCenter = null;
-						for(Cell tmp : mapInfo.getRecyclingCenters()){
-							try {
-								
-								if(tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar())) > points){
-									points = tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar()));
-									recyclingCenter = tmp;
+							for(Cell tmp : mapInfo.getRecyclingCenters()){
+								try {
+									
+									if(tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar())) > points){
+										points = tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar()));
+										recyclingCenter = tmp;
+									}
+								} catch (Exception e) {
+									e.printStackTrace();
 								}
-							} catch (Exception e) {}
+							}
+						
+							if(avail_capacity == 0 && objectivePosition.getGarbageUnits() > 0){
+								objectives.add(0, objectivePosition);
+							}
+							showMessage("ADDING A RECYCLING CENTER");
+							objectivePosition = recyclingCenter;
 						}
-						if(avail_capacity == 0 && objectivePosition.getGarbageUnits() > 0){
-							objectives.add(0, objectivePosition);
-						}
-						objectivePosition = recyclingCenter;
-						}
+						c = objectivePosition;
 					} catch (Exception e1) {
 						
 					}
@@ -388,7 +392,7 @@ public class HarvesterAgent extends Agent implements Serializable{
       					}
       					
       				}
-      				
+      				c = objectivePosition;
       				break;
       			}
             }else{
@@ -397,6 +401,7 @@ public class HarvesterAgent extends Agent implements Serializable{
                            
                             Cell newC = getBestPositionToObjective(mapInfo.getMap(), c, objectivePosition);
                             if(newC == null || newC == c){
+                            		showMessage("RANDOM MOVEMENT");
                                     randomMovement = true;
                                     try {
 										c = getRandomPosition(mapInfo.getMap(), c);
@@ -438,7 +443,8 @@ public class HarvesterAgent extends Agent implements Serializable{
                     } else { // we have recently been avoiding a collision
                             followingOptimalPath = true;
                             // modify the optimal path adding the steps to go back to the lastOptimalPoint!!
-                            
+                            objectives.add(0, objectivePosition);
+                            objectivePosition = lastOptimalPoint;
                             
                             c = moveNormally();
                     }
@@ -769,27 +775,16 @@ public class HarvesterAgent extends Agent implements Serializable{
 									
 									showMessage("Winner: " + winner);
 									// update the objective position
-//<<<<<<< HEAD
-//									if(agent_aid.equals(winner)){
-//										if(objectives.size() == 0 && randomMovement == true){
-//											randomMovement = false;
-//											objectivePosition = auctionInfo.getInfo();
-//										} else{
-//											objectives.add(auctionInfo.getInfo());
-//										}
-//										/*
-//										if(randomMovement == true || objectivePosition == null || objectivePosition.getRow() == -1){
-//											randomMovement = false;
-//											objectivePosition = auctionInfo.getInfo();
-//										} else{
-//											objectives.add(auctionInfo.getInfo());
-//										}*/
-//										showMessage("Objective position updated!!");
-//=======
 									if(myAID.equals(winner)){
-										objectivePosition = auctionInfo.getInfo();
-										showMessage("////////////////////Objective position updated!!");
-//>>>>>>> origin/debug
+										if(objectives.size() == 0 && randomMovement == true){
+											randomMovement = false;
+											objectivePosition = auctionInfo.getInfo();
+											showMessage("Objective position updated!!");
+										} else{
+											objectives.add(auctionInfo.getInfo());
+										}
+										
+
 									}
 									okInfo = true;
 									originalInfo = reply;
