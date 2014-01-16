@@ -1019,7 +1019,15 @@ public class ScoutAgent extends Agent {
 		int x_dif = actual_x - x;
 		int y_dif = actual_y - y;
 		
-		if (x_dif == 1 && y_dif == 0)
+		if(actual_x > x && actual_y == y )
+			return this.NORT;
+		if(actual_x < x && actual_y == y )
+			return this.SUD;
+		if(actual_x == x && actual_y > y )
+			return this.WEST;
+		if(actual_x == x && actual_y < y )
+			return this.EST;
+		/*if (x_dif == 1 && y_dif == 0)
 			return this.NORT;
 		if (x_dif == 0 && y_dif == 1)
 			return this.WEST;
@@ -1027,6 +1035,7 @@ public class ScoutAgent extends Agent {
 			return this.SUD;
 		if ( x_dif == 0 && y_dif == -1)
 			return this.EST;
+		*/
 		
 		System.err.println("Position not correct");
 		return -1;
