@@ -313,16 +313,16 @@ public class CentralAgent extends Agent {
 			*/
 			if(found){
 				original_cell.add(game.getInfo().getAgentCell(agent_aid));
-				//int addPos;
+				int addPos;
 				// We only check if this is any agent that does not want to move
-				/*if(oldAgentPos.get(k).getRow() == pos_row && oldAgentPos.get(k).getColumn() == pos_col){
+				if(oldAgentPos.get(k).getRow() == pos_row && oldAgentPos.get(k).getColumn() == pos_col){
 					addPos = 0;
 					standPos.add(k);
 				} else {
 					addPos = k;
 					movingPos.add(k);
-				}*/
-				movingPos.add(k);
+				}
+				
 				old.add(oldAgentPos.get(k).getAgent());
 	
 			
@@ -342,7 +342,7 @@ public class CentralAgent extends Agent {
 						try{
 							if(map[i][j].getRow()==pos_row && map[i][j].getColumn()==pos_col){
 								found = true;
-								newAgentPos.add(map[i][j]);
+								newAgentPos.add(addPos, map[i][j]);
 								k++;
 							}
 						}catch(Exception e){}
@@ -357,7 +357,7 @@ public class CentralAgent extends Agent {
 	
 		}		
 		
-		//addPositions.addAll(standPos);
+		addPositions.addAll(standPos);
 		addPositions.addAll(movingPos);
 		
 		// Check exchanging positions (crashes)
