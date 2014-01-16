@@ -669,14 +669,16 @@ public class CentralAgent extends Agent {
 						case Cell.BUILDING:
 							showMessage(Integer.toString(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentType()));
 							if(c.getAgent().getCurrentTypeChar() == b.getGarbageType() || c.getAgent().getCurrentType() == -1){
-								// set harvester garbage type
-								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(b.getGarbageType());
-								// increase the counter for the harvester
-								tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
-								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp + 1);
-								// decrease the counter for the building
-								tmp = game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits();
-								game.getInfo().getCell(b.getRow(), b.getColumn()).setGarbageUnits(tmp - 1);
+								if(game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits() > 0){
+									// set harvester garbage type
+									game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(b.getGarbageType());
+									// increase the counter for the harvester
+									tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+									game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp + 1);
+									// decrease the counter for the building
+									tmp = game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits();
+									game.getInfo().getCell(b.getRow(), b.getColumn()).setGarbageUnits(tmp - 1);
+								}
 							} else{
 								System.err.println("Harvester " + senderName + " performing wrong garbage operation");
 							}
@@ -687,21 +689,22 @@ public class CentralAgent extends Agent {
 							break;
 							
 						case Cell.RECYCLING_CENTER:
-							
-							// decrease the counter for the harvester
-							tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
-							game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp - 1);
-							String garbage = String.valueOf(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentTypeChar());
-							if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 0){
-							game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
+							if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() > 0){
+								// decrease the counter for the harvester
+								tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp - 1);
+								String garbage = String.valueOf(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentTypeChar());
+								if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 0){
+								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
+								}
+								// add the points
+								tmp = harvester_points.remove(senderName);
+								harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
+								haversterUnits++;
+								
+								reply = msg.createReply();
+								reply.setPerformative(ACLMessage.AGREE);		
 							}
-							// add the points
-							tmp = harvester_points.remove(senderName);
-							harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
-							haversterUnits++;
-							
-							reply = msg.createReply();
-							reply.setPerformative(ACLMessage.AGREE);						
 							break;
 							
 						default: 

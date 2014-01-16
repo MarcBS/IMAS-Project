@@ -3,15 +3,9 @@
 500  //time to think milliseconds
 20    //rows
 20    //columns
-<<<<<<< HEAD
-1     //number of scouts
-1    //number of harvesters
-GPM-10,GPM-10,GPM-10,GPM-10,GPM-10     //harvesters: type of garbage (G=Glass, P=Plastic, M=Metal, A=Paper) - capacity
-=======
 4     //number of scouts
 4     //number of harvesters
 GPM-10,GPM-10,GPM-10,GPM-10     //harvesters: type of garbage (G=Glass, P=Plastic, M=Metal, A=Paper) - capacity
->>>>>>> origin/debug
 s b b s b s b b s s b b s b s b b s s s
 s b s s s s b b s s b b s s s b b s s s
 s b r(0,0,2,2) b b s b s s s b s s b s b b s s b
