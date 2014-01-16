@@ -735,7 +735,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 				float tmp_capacity = capacity - auctionInfo.getInfo().getGarbageUnits();
 				if(tmp_capacity == 0){ tmp_capacity = 1;} // if the harvester is full, optimizes the garbage collection
 				//else{tmp_capacity = 1/tmp_capacity;} 
-				float num_objectives = 10;
+				float num_objectives = 100;
 				if(objectives.size() > 0) num_objectives = 1/objectives.size();
 				bid = 1/distance1 + 1/tmp_capacity + 1/distance2 + points + num_objectives;
 			} catch (Exception e) {
@@ -830,7 +830,15 @@ public class HarvesterAgent extends Agent implements Serializable{
 		int x_dif = actual_x - x;
 		int y_dif = actual_y - y;
 		
-		if (x_dif == 1 && y_dif == 0)
+		if(actual_x > x && actual_y == y )
+			return this.NORT;
+		if(actual_x < x && actual_y == y )
+			return this.SUD;
+		if(actual_x == x && actual_y > y )
+			return this.WEST;
+		if(actual_x == x && actual_y < y )
+			return this.EST;
+		/*if (x_dif == 1 && y_dif == 0)
 			return this.NORT;
 		if (x_dif == 0 && y_dif == 1)
 			return this.WEST;
@@ -838,7 +846,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 			return this.SUD;
 		if ( x_dif == 0 && y_dif == -1)
 			return this.EST;
-		
+		*/
 		System.err.println("Position not correct");
 		return -1;
 	}
@@ -1035,7 +1043,6 @@ public class HarvesterAgent extends Agent implements Serializable{
 					// TODO Auto-generated catch block
 					e1.printStackTrace();
 				}
-				e.printStackTrace();
 			} //Save infoagent to the new position
 			
 		}
