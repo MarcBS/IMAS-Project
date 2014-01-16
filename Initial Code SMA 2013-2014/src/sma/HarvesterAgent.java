@@ -296,88 +296,92 @@ public class HarvesterAgent extends Agent {
             Cell c = mapInfo.getAgentCell(agent_aid);
            
             int avail_capacity = mapInfo.getInfoAgent(agent_aid).getMaxUnits() - mapInfo.getInfoAgent(agent_aid).getUnits();
-            // since the objective is a building, the agent must be at distance 1
-            if(avail_capacity > 0 && (objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) &&
-                    Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1){
-                    showMessage("Curently at objective");
-                    switch (objectivePosition.getCellType()){
-                    case Cell.BUILDING:
-                           
+      		// since the objective is a building, the agent must be at distance 1
+      		if((objectivePosition.getCellType() == Cell.BUILDING || objectivePosition.getCellType() == Cell.RECYCLING_CENTER) && 
+      				(Math.abs(objectivePosition.getRow() - c.getRow()) + Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1 ||
+      				(Math.abs(objectivePosition.getRow() - c.getRow()) == 1) && (Math.abs(objectivePosition.getColumn() - c.getColumn()) == 1))){
+      			showMessage("Curently at objective");
+      			switch (objectivePosition.getCellType()){
+      			case Cell.BUILDING:
+      				
+      				
+      				try {
+						if(avail_capacity > 0 && mapInfo.getCell(objectivePosition.getRow(), objectivePosition.getColumn()).getGarbageUnits() > 0 &&
+								mapInfo.getAgentCell(agent_aid).getAgent().getMaxUnits() > mapInfo.getAgentCell(agent_aid).getAgent().getUnits()){
+							
+							ServiceDescription searchCriterion = new ServiceDescription();
+						searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
+						AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
+						
+						showMessage("Sending Garbage Info to central.");
+						ACLMessage info = new ACLMessage(ACLMessage.INFORM);
+						info.clearAllReceiver();
+						info.addReceiver(centralAgent);
+						info.setProtocol(InteractionProtocol.FIPA_REQUEST);
+						
 						try {
-							if(mapInfo.getCell(objectivePosition.getRow(), objectivePosition.getColumn()).getGarbageUnits() > 0 &&
-                                            mapInfo.getAgentCell(agent_aid).getAgent().getMaxUnits() > mapInfo.getAgentCell(agent_aid).getAgent().getUnits()){
-                                   
-                                    ServiceDescription searchCriterion = new ServiceDescription();
-                                    searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
-                                    AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
-                                   
-                                    showMessage("Sending Garbage Info to central.");
-                                    ACLMessage info = new ACLMessage(ACLMessage.INFORM);
-                                    info.clearAllReceiver();
-                                    info.addReceiver(centralAgent);
-                                    info.setProtocol(InteractionProtocol.FIPA_REQUEST);
-                                   
-                                    try {
-                                            info.setContentObject((Cell)objectivePosition);
-                                            send(info);
-                                    } catch (Exception e) {
-                                            e.printStackTrace();
-                                    }
-
-                                   
-                            } else if (mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getUnits() > 0){
-                                    int points = 0;
-                                    Cell recyclingCenter = null;
-                                    for(Cell tmp : mapInfo.getRecyclingCenters()){
-                                            try {
-                                                   
-                                                    if(tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar())) > points){
-                                                            points = tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar()));
-                                                            recyclingCenter = tmp;
-                                                    }
-                                            } catch (Exception e) {}
-                                    }
-                                   
-                                    objectivePosition = recyclingCenter;
-                            }
-						} catch (Exception e1) {
-							// TODO Auto-generated catch block
-							e1.printStackTrace();
+							info.setContentObject((Cell)objectivePosition);
+							send(info);
+						} catch (Exception e) {
+							e.printStackTrace();
 						}
-                            break;
-                           
-                    case Cell.RECYCLING_CENTER:
-                            if(mapInfo.getInfoAgent(agent_aid).getUnits() > 0){
-                                   
-                                    ServiceDescription searchCriterion = new ServiceDescription();
-                                    searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
-                                    AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
-                                   
-                                    showMessage("Sending Garbage Info to central.");
-                                    ACLMessage info = new ACLMessage(ACLMessage.INFORM);
-                                    info.clearAllReceiver();
-                                    info.addReceiver(centralAgent);
-                                    info.setProtocol(InteractionProtocol.FIPA_REQUEST);
 
-                                    try {
-                                            info.setContentObject((Cell)objectivePosition);
-                                            send(info);
-                                    } catch (Exception e) {
-                                            e.printStackTrace();
-                                    }
+						
+						} else if (mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getUnits() > 0){
+							int points = 0;
+							Cell recyclingCenter = null;
+						for(Cell tmp : mapInfo.getRecyclingCenters()){
+							try {
+								
+								if(tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar())) > points){
+									points = tmp.getGarbagePoints(String.valueOf(mapInfo.getAgentCell(this.myAgent.getAID()).getAgent().getCurrentTypeChar()));
+									recyclingCenter = tmp;
+								}
+							} catch (Exception e) {}
+						}
+						if(avail_capacity == 0 && objectivePosition.getGarbageUnits() > 0){
+							objectives.add(0, objectivePosition);
+						}
+						objectivePosition = recyclingCenter;
+						}
+					} catch (Exception e1) {
+						
+					}
+      				break;
+      				
+      			case Cell.RECYCLING_CENTER:
+      				if(mapInfo.getInfoAgent(agent_aid).getUnits() > 0){
+      					
+      					ServiceDescription searchCriterion = new ServiceDescription();
+  	      			searchCriterion.setType(UtilsAgents.CENTRAL_AGENT);
+  	      			AID centralAgent = UtilsAgents.searchAgent(this.myAgent, searchCriterion);
+  	      			
+  	      			showMessage("Sending Garbage Info to central.");
+  	      			ACLMessage info = new ACLMessage(ACLMessage.INFORM);
+  	      			info.clearAllReceiver();
+  	      			info.addReceiver(centralAgent);
+  	      			info.setProtocol(InteractionProtocol.FIPA_REQUEST);
 
-                                   
-                            } else{
-                                    if(objectives.size() > 0){
-                                            objectivePosition = objectives.remove(0); // get the first movement of the stack
-                                    }else{
-                                            objectivePosition = null;
-                                    }
-                                   
-                            }
-                           
-                            break;
-                    }
+  	      		    try {
+  	      		    	info.setContentObject((Cell)objectivePosition);
+  	      		    	send(info);
+  	      		    } catch (Exception e) {
+  	      		    	e.printStackTrace();
+  	      		    }
+
+  	      		    
+      				} else{
+      					if(objectives.size() > 0){
+      						findNextObjective(); // get the next movement, using the Manhattan distance and the position in the stack
+      						//objectivePosition = objectives.remove(0); // get the first movement of the stack
+      					}else{
+      						objectivePosition = null;
+      					}
+      					
+      				}
+      				
+      				break;
+      			}
             }else{
                     //If the agents have some objective position to go use AStar if not random movement.
                     if(objectivePosition.getRow() != -1){
@@ -1169,6 +1173,25 @@ public class HarvesterAgent extends Agent {
 			}
 		}
 		return false;
+	}
+	
+	private void findNextObjective(){
+		float best = Float.POSITIVE_INFINITY;
+		int position = 0;
+		int final_pos = 0;
+		Cell curr_pos = mapInfo.getAgentCell(this.getAID());
+		for(Cell o : objectives){
+			float distance = Math.abs(curr_pos.getRow() - o.getRow()) + Math.abs(curr_pos.getColumn() - o.getColumn());
+			distance += position/objectives.size();
+			if(best > distance){
+				best = distance;
+				final_pos = position;
+			}
+			position++;
+		}
+		
+		objectivePosition = objectives.remove(final_pos);
+		System.err.println("NEW OBJECTIVE: "+objectivePosition + "; pos = " + curr_pos);
 	}
 	
 	private Cell getBestPositionToObjective(Cell[][] cells, Cell actualPosition, Cell objectivePosition) {

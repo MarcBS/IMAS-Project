@@ -58,6 +58,10 @@ public class CentralAgent extends Agent {
 	
 	private boolean movements_updated = false;
 	
+	private HashMap<AID, Integer> harvester_points = new HashMap<AID, Integer>();
+
+	private int haversterUnits = 0;
+	
 	public CentralAgent() {
 		super();
 	}
@@ -133,6 +137,7 @@ public class CentralAgent extends Agent {
         	  agents.add( currentGame.getInfo().getCell(x,y));
       	      //Add the harvester aid into the harvester aid list
       	      this.game.getInfo().addHarvester_aid(aid);
+      	      harvester_points.put(aid, 0);
       	      numHarvesters++;
     	  }
       }
@@ -261,6 +266,7 @@ public class CentralAgent extends Agent {
 			Cell[][] map = game.getInfo().getMap();
 			//(int i = 0; i < map.length; i++){
 			int i = 0; int j = 0;boolean found = false;
+			
 			while( i < map.length && !found){
 				j = 0;
 				while(j < map[i].length && !found){
@@ -274,9 +280,10 @@ public class CentralAgent extends Agent {
 				}
 				i++;
 			}
+			
 			if(found){
 				int addPos;
-				// We onlycheck if this is any agent that does not want to move
+				// We only check if this is any agent that does not want to move
 				if(oldAgentPos.get(k).getRow() == pos_row && oldAgentPos.get(k).getColumn() == pos_col){
 					addPos = 0;
 					standPos.add(k);
@@ -291,6 +298,7 @@ public class CentralAgent extends Agent {
 			
 				// set the InfoAgent to null
 				try {
+					System.err.println(oldAgentPos.get(k));
 					oldAgentPos.get(k).removeAgent(old.get(k));
 				} catch (Exception e1) {
 					
@@ -360,6 +368,8 @@ public class CentralAgent extends Agent {
 		return true;
 	}
 
+	
+	
 	/*************************************************************************/
 
 	/**
@@ -454,13 +464,16 @@ public class CentralAgent extends Agent {
 				ACLMessage msg = messagesQueue.getMessage();
 				
 				try {
-					Object contentRebut = (Object)msg.getContent();
-					if(processMovements(msg.getContentObject())) {
-						turnLastMap = game.getTurn();
-						showMessage("Movements applied.");
-						reply = msg.createReply();
-						reply.setPerformative(ACLMessage.AGREE);
-						okRR = true;
+					Object contentRebut = (Object)msg.getContentObject();
+					if(contentRebut instanceof ArrayList<?>){
+						boolean result = processMovements(msg.getContentObject());
+						if(result) {
+							turnLastMap = game.getTurn();
+							showMessage("Movements applied.");
+							reply = msg.createReply();
+							reply.setPerformative(ACLMessage.AGREE);
+							okRR = true;
+						}
 					} else {
 			        	messagesQueue.add(msg);
 			        }
@@ -648,6 +661,9 @@ public class CentralAgent extends Agent {
 				// wait for the new positions 
 				this.myAgent.addBehaviour(new RequestResponseBehaviour((CentralAgent) this.myAgent));
 				
+				// look for garbage messages from harvesters
+				this.myAgent.addBehaviour(new UpdateGarbageHarvester((CentralAgent) this.myAgent));
+				
 			} else {
 
 				// TODO: show final result
@@ -754,6 +770,112 @@ public class CentralAgent extends Agent {
 				    }
 				}
 
+				
+				
+				/**
+				 * Reads the movements, applies them and sends an agree reply
+				 * @author Alex Pardo Fernandez
+				 *
+				 */
+				private class UpdateGarbageHarvester extends OneShotBehaviour{
+					
+					public UpdateGarbageHarvester(CentralAgent myAgent) {
+						super(myAgent);
+						
+					}
+					@Override
+					public void action() {
+
+						showMessage("Reading updates from Harvesters.");
+						
+						boolean okRR = false;
+						ACLMessage reply = null;
+						int counter = 0;
+						while(!okRR && counter < messagesQueue.size()){
+							ACLMessage msg = messagesQueue.getMessage();
+							counter++;
+							
+							try {
+								Object contentRebut = (Object)msg.getContentObject();
+								
+								if(msg.getSender().getLocalName().startsWith(harvesterName)){
+									AID senderName = msg.getSender();
+									showMessage("Message from " + msg.getSender().getLocalName());
+									Cell c = game.getInfo().getAgentCell(senderName);
+										
+									Cell b = (Cell) contentRebut;
+									int tmp;
+									switch(b.getCellType()){
+									case Cell.BUILDING:
+										showMessage(Integer.toString(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentType()));
+										if(c.getAgent().getCurrentTypeChar() == b.getGarbageType() || c.getAgent().getCurrentType() == -1){
+											if(game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits() > 0){
+												// set harvester garbage type
+												game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(b.getGarbageType());
+												// increase the counter for the harvester
+												tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+												game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp + 1);
+												// decrease the counter for the building
+												tmp = game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits();
+												game.getInfo().getCell(b.getRow(), b.getColumn()).setGarbageUnits(tmp - 1);
+											}
+										} else{
+											System.err.println("Harvester " + senderName + " performing wrong garbage operation");
+										}
+										
+										reply = msg.createReply();
+										reply.setPerformative(ACLMessage.AGREE);
+										
+										break;
+										
+									case Cell.RECYCLING_CENTER:
+										if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() > 0){
+											// decrease the counter for the harvester
+											tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+											game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp - 1);
+											String garbage = String.valueOf(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentTypeChar());
+											if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 0){
+											game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
+											}
+											// add the points
+											tmp = harvester_points.remove(senderName);
+											harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
+											haversterUnits++;
+											
+											reply = msg.createReply();
+											reply.setPerformative(ACLMessage.AGREE);		
+										}
+										break;
+										
+									default: 
+											break;
+									}
+									
+								
+							
+								} else {
+						        	messagesQueue.add(msg);
+						        }
+							}catch (Exception e){
+								e.printStackTrace();
+								messagesQueue.add(msg);
+							}
+						}
+						
+				        messagesQueue.endRetrieval();
+				        
+						if( reply != null){
+							send(reply);
+						}else{
+							showMessage("No garbage interaction found.");
+						}
+						
+						
+					}
+				
+
+					
+				}
 			  
 			/*************************************************************************/
 		

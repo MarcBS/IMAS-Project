@@ -37,7 +37,7 @@ import java.util.*;
 public class CoordinatorAgent extends Agent {
 	
 	// Indicates if we want to show the debugging messages
-	private boolean debugging = true;
+	private boolean debugging = false;
 
   private AuxInfo info;
   private int[] countMapRequests = {0, 0};
@@ -191,7 +191,7 @@ public class CoordinatorAgent extends Agent {
 
   /**
 	 * 
-	 * @author Albert Busqué and Marc Bolaños
+	 * @author Albert Busquï¿½ and Marc Bolaï¿½os
 	 *
 	 * Class that implements behavior for requesting game info (map)
 	 * STATE_1
@@ -370,7 +370,7 @@ public class CoordinatorAgent extends Agent {
    * STATE_3
    * Waiting for new movements from lower layer coordinators.
    * 
-   * @author Marc Bolaños
+   * @author Marc Bolaï¿½os
    *
    */
 	protected class ReceiveMovements extends SimpleBehaviour {
@@ -430,7 +430,7 @@ public class CoordinatorAgent extends Agent {
    * STATE_4
    * Sends the movements to the CentralAgent and reeds the new map information.
    * 
-   * @author Marc Bolaños
+   * @author Marc Bolaï¿½os
    *
    */
 	protected class SendMovesBehaviour extends SimpleBehaviour {
@@ -519,7 +519,7 @@ public class CoordinatorAgent extends Agent {
 	   * STATE_5
 	   * Waiting for new discoveries from the ScoutsCoordinator.
 	   * 
-	   * @author Marc Bolaños
+	   * @author Marc Bolaï¿½os
 	   *
 	   */
 		protected class ReceiveNewDiscoveriesScouts extends SimpleBehaviour {
@@ -575,7 +575,7 @@ public class CoordinatorAgent extends Agent {
 		   * STATE_6
 		   * Sends the new discoveries to the CentralAgent.
 		   * 
-		   * @author Marc Bolaños
+		   * @author Marc Bolaï¿½os
 		   *
 		   */
 			protected class SendNewDiscoveriesCentral extends SimpleBehaviour {
@@ -625,7 +625,7 @@ public class CoordinatorAgent extends Agent {
 		   * STATE_7
 		   * Waiting for new discoveries from the CentralAgent.
 		   * 
-		   * @author Marc Bolaños
+		   * @author Marc Bolaï¿½os
 		   *
 		   */
 			protected class ReceiveNewDiscoveriesCentral extends SimpleBehaviour {
@@ -681,7 +681,7 @@ public class CoordinatorAgent extends Agent {
 		   * STATE_8
 		   * Sends the new discoveries to the HarvestersCoordinator.
 		   * 
-		   * @author Marc Bolaños
+		   * @author Marc Bolaï¿½os
 		   *
 		   */
 			protected class SendNewDiscoveriesHarvesters extends SimpleBehaviour {

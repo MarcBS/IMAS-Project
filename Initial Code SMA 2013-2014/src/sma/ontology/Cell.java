@@ -217,10 +217,10 @@ public class Cell implements Serializable {
 	public void removeAgent(AID currentAgent) {
 		try{
 			if(this.agent == null){
-				System.out.println("Agent null");
+				System.err.println("Agent null");
 			}
 			if(currentAgent == null){
-				System.out.println("currentAgent null");
+				System.err.println("currentAgent null");
 			}
 			
 			if(this.agent != null){
