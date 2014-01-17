@@ -1221,7 +1221,7 @@ public class HarvesterAgent extends Agent implements Serializable{
 		Cell curr_pos = mapInfo.getAgentCell(this.getAID());
 		for(Cell o : objectives){
 			float distance = Math.abs(curr_pos.getRow() - o.getRow()) + Math.abs(curr_pos.getColumn() - o.getColumn());
-			distance += position/objectives.size();
+			//distance += position/objectives.size();
 			if(best > distance){
 				best = distance;
 				final_pos = position;

@@ -696,112 +696,112 @@ public class CentralAgent extends Agent {
 		
 	}
 	
-	/**
-	 * Reads the movements, applies them and sends an agree reply
-	 * @author Alex Pardo Fernandez
-	 *
-	 */
-	private class UpdateGarbageHarvester extends OneShotBehaviour{
-		
-		public UpdateGarbageHarvester(CentralAgent myAgent) {
-			super(myAgent);
-			
-		}
-		@Override
-		public void action() {
-
-			showMessage("Reading updates from Harvesters.");
-			
-			boolean okRR = false;
-			ACLMessage reply = null;
-			int counter = 0;
-			while(!okRR && counter < messagesQueue.size()){
-				ACLMessage msg = messagesQueue.getMessage();
-				counter++;
-				
-				try {
-					Object contentRebut = (Object)msg.getContentObject();
-					
-					if(msg.getSender().getLocalName().startsWith(harvesterName)){
-						AID senderName = msg.getSender();
-						showMessage("Message from " + msg.getSender().getLocalName());
-						Cell c = game.getInfo().getAgentCell(senderName);
-							
-						Cell b = (Cell) contentRebut;
-						int tmp;
-						switch(b.getCellType()){
-						case Cell.BUILDING:
-							showMessage(Integer.toString(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentType()));
-							if(c.getAgent().getCurrentTypeChar() == b.getGarbageType() || c.getAgent().getCurrentType() == -1){
-								if(game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits() > 0){
-									// set harvester garbage type
-									game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(b.getGarbageType());
-									// increase the counter for the harvester
-									tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
-									game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp + 1);
-									// decrease the counter for the building
-									tmp = game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits();
-									game.getInfo().getCell(b.getRow(), b.getColumn()).setGarbageUnits(tmp - 1);
-								}
-							} else{
-								System.err.println("Harvester " + senderName + " performing wrong garbage operation");
-							}
-							
-							reply = msg.createReply();
-							reply.setPerformative(ACLMessage.AGREE);
-							
-							break;
-							
-						case Cell.RECYCLING_CENTER:
-							if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() > 0){
-								// decrease the counter for the harvester
-								tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
-								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp - 1);
-								String garbage = String.valueOf(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentTypeChar());
-								if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 0){
-								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
-								}
-								// add the points
-								tmp = harvester_points.remove(senderName);
-								harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
-								haversterUnits++;
-								
-								showMessage(senderName+" is recycling 1 unit of the garbage type "+garbage);
-								showMessage(senderName+" obtains:"+tmp+b.getGarbagePoints(garbage) +" points by recycling the garbage");
-								reply = msg.createReply();
-								reply.setPerformative(ACLMessage.AGREE);		
-							}
-							break;
-							
-						default: 
-								break;
-						}
-						
-					
-				
-					} else {
-			        	messagesQueue.add(msg);
-			        }
-				}catch (Exception e){
-					e.printStackTrace();
-					messagesQueue.add(msg);
-				}
-			}
-			
-	        messagesQueue.endRetrieval();
-	        
-			if( reply != null){
-				send(reply);
-			}else{
-				showMessage("No garbage interaction found.");
-			}
-			
-			
-		}
-	
-
-		
-	}
+//	/**
+//	 * Reads the movements, applies them and sends an agree reply
+//	 * @author Alex Pardo Fernandez
+//	 *
+//	 */
+//	private class UpdateGarbageHarvester extends OneShotBehaviour{
+//		
+//		public UpdateGarbageHarvester(CentralAgent myAgent) {
+//			super(myAgent);
+//			
+//		}
+//		@Override
+//		public void action() {
+//
+//			showMessage("Reading updates from Harvesters.");
+//			
+//			boolean okRR = false;
+//			ACLMessage reply = null;
+//			int counter = 0;
+//			while(!okRR && counter < messagesQueue.size()){
+//				ACLMessage msg = messagesQueue.getMessage();
+//				counter++;
+//				
+//				try {
+//					Object contentRebut = (Object)msg.getContentObject();
+//					
+//					if(msg.getSender().getLocalName().startsWith(harvesterName)){
+//						AID senderName = msg.getSender();
+//						showMessage("Message from " + msg.getSender().getLocalName());
+//						Cell c = game.getInfo().getAgentCell(senderName);
+//							
+//						Cell b = (Cell) contentRebut;
+//						int tmp;
+//						switch(b.getCellType()){
+//						case Cell.BUILDING:
+//							showMessage(Integer.toString(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentType()));
+//							if(c.getAgent().getCurrentTypeChar() == b.getGarbageType() || c.getAgent().getCurrentType() == -1){
+//								if(game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits() > 0){
+//									// set harvester garbage type
+//									game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(b.getGarbageType());
+//									// increase the counter for the harvester
+//									tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+//									game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp + 1);
+//									// decrease the counter for the building
+//									tmp = game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits();
+//									game.getInfo().getCell(b.getRow(), b.getColumn()).setGarbageUnits(tmp - 1);
+//								}
+//							} else{
+//								System.err.println("Harvester " + senderName + " performing wrong garbage operation");
+//							}
+//							
+//							reply = msg.createReply();
+//							reply.setPerformative(ACLMessage.AGREE);
+//							
+//							break;
+//							
+//						case Cell.RECYCLING_CENTER:
+//							if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() > 0){
+//								// decrease the counter for the harvester
+//								tmp = game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits();
+//								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setUnits(tmp - 1);
+//								String garbage = String.valueOf(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getCurrentTypeChar());
+//								if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 0){
+//								game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().setCurrentType(-1);
+//								}
+//								// add the points
+//								tmp = harvester_points.remove(senderName);
+//								harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
+//								haversterUnits++;
+//								
+//								showMessage(senderName+" is recycling 1 unit of the garbage type "+garbage);
+//								showMessage(senderName+" obtains:"+tmp+b.getGarbagePoints(garbage) +" points by recycling the garbage");
+//								reply = msg.createReply();
+//								reply.setPerformative(ACLMessage.AGREE);		
+//							}
+//							break;
+//							
+//						default: 
+//								break;
+//						}
+//						
+//					
+//				
+//					} else {
+//			        	messagesQueue.add(msg);
+//			        }
+//				}catch (Exception e){
+//					e.printStackTrace();
+//					messagesQueue.add(msg);
+//				}
+//			}
+//			
+//	        messagesQueue.endRetrieval();
+//	        
+//			if( reply != null){
+//				send(reply);
+//			}else{
+//				showMessage("No garbage interaction found.");
+//			}
+//			
+//			
+//		}
+//	
+//
+//		
+//	}
 
 	/*************************************************************************/
 
@@ -1026,6 +1026,9 @@ public class CentralAgent extends Agent {
 												// decrease the counter for the building
 												tmp = game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits();
 												game.getInfo().getCell(b.getRow(), b.getColumn()).setGarbageUnits(tmp - 1);
+												
+												if(game.getInfo().getCell(c.getRow(), c.getColumn()).getAgent().getUnits() == 10 ||
+														game.getInfo().getCell(b.getRow(), b.getColumn()).getGarbageUnits() == 0) haversterUnits++;
 											}
 										} else{
 											System.err.println("Harvester " + senderName + " performing wrong garbage operation");
@@ -1048,7 +1051,8 @@ public class CentralAgent extends Agent {
 											// add the points
 											tmp = harvester_points.remove(senderName);
 											harvester_points.put(senderName, tmp+b.getGarbagePoints(garbage));
-											haversterUnits++;
+											
+											
 											
 											showMessage(senderName+" is recycling 1 unit of the garbage type "+garbage);
 											showMessage(senderName+" obtains:"+tmp+b.getGarbagePoints(garbage) +" points by recycling the garbage");
@@ -1245,7 +1249,7 @@ public class CentralAgent extends Agent {
 		
 		stat1 = ((double)obtainedPoints/(double)maxPossiblePoints)*100;
 		showMessage("Percentage of the number of points obtained over the maximum number of points for this map:"+new DecimalFormat("###.##").format(stat1)+"%");
-		stat2 = ((double)haversterUnits/(double)totalUnitsGarbage)*100;
+		stat2 = ((double)haversterUnits/(double)newDiscover)*100;
 		showMessage("Percentage of units of garbage harvested:"+new DecimalFormat("###.##").format(stat2)+"%");
 		stat3 = ((double)newDiscover/(double)totalGarbage)*100;
 		showMessage("Percentage of buildings with garbage discovered: "+new DecimalFormat("###.##").format(stat3)+"%");
