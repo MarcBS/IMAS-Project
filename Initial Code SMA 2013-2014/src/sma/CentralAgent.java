@@ -328,7 +328,6 @@ public class CentralAgent extends Agent {
 			
 				// set the InfoAgent to null
 				try {
-					System.err.println(oldAgentPos.get(k));
 					oldAgentPos.get(k).removeAgent(old.get(k));
 				} catch (Exception e1) {
 					
